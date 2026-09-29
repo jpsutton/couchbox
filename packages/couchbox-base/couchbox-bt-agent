@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""BlueZ pairing agent for couchbox: accept every pairing request, and trust
+every device that pairs.
+
+Bigscreen's Bluetooth settings can start a pairing but register no agent, so
+BlueZ has nobody to confirm "just works" pairing with and refuses it
+("No agent available for request type 2"). A TV remote has no keys to type a
+passkey or answer a prompt with, so confirming on screen would not help
+either. This agent says yes and marks the device trusted, so it reconnects
+after it wakes from sleep.
+
+Only devices the adapter is willing to pair with get here: BlueZ rejects
+pairing while the adapter is not pairable, except for pairing we start.
+"""
+import dbus
+import dbus.mainloop.glib
+import dbus.service
+from gi.repository import GLib
+
+BUS = "org.bluez"
+AGENT_PATH = "/org/couchbox/agent"
+
+
+def trust(device_path):
+    dev = dbus.Interface(bus.get_object(BUS, device_path), "org.freedesktop.DBus.Properties")
+    dev.Set("org.bluez.Device1", "Trusted", True)
+    name = dev.Get("org.bluez.Device1", "Alias")
+    print(f"accepted and trusted {name} ({device_path})", flush=True)
+
+
+class Agent(dbus.service.Object):
+    @dbus.service.method("org.bluez.Agent1", in_signature="", out_signature="")
+    def Release(self):
+        pass
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="os", out_signature="")
+    def AuthorizeService(self, device, uuid):
+        pass
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="s")
+    def RequestPinCode(self, device):
+        trust(device)
+        return "0000"
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="u")
+    def RequestPasskey(self, device):
+        trust(device)
+        return dbus.UInt32(0)
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="ouq", out_signature="")
+    def DisplayPasskey(self, device, passkey, entered):
+        pass
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="os", out_signature="")
+    def DisplayPinCode(self, device, pincode):
+        pass
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="ou", out_signature="")
+    def RequestConfirmation(self, device, passkey):
+        trust(device)
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="")
+    def RequestAuthorization(self, device):
+        trust(device)
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="", out_signature="")
+    def Cancel(self):
+        pass
+
+
+def register(*_):
+    manager = dbus.Interface(bus.get_object(BUS, "/org/bluez"), "org.bluez.AgentManager1")
+    manager.RegisterAgent(AGENT_PATH, "NoInputNoOutput")
+    manager.RequestDefaultAgent(AGENT_PATH)
+    print("agent registered", flush=True)
+
+
+def on_properties_changed(interface, changed, invalidated, path=None):
+    # Pairing started from Bigscreen's settings is "just works" from our side,
+    # so BlueZ finishes it without asking the agent. Trust those devices too.
+    if interface == "org.bluez.Device1" and changed.get("Paired"):
+        trust(path)
+
+
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+bus = dbus.SystemBus()
+Agent(bus, AGENT_PATH)
+bus.add_signal_receiver(on_properties_changed, "PropertiesChanged",
+                        "org.freedesktop.DBus.Properties", BUS, path_keyword="path")
+# Re-register whenever bluetoothd (re)starts.
+bus.watch_name_owner(BUS, lambda owner: owner and register())
+GLib.MainLoop().run()

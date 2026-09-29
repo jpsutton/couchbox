@@ -1,0 +1,11 @@
+[Unit]
+Description=couchbox Bluetooth pairing agent (auto-accept, for remotes)
+After=bluetooth.service
+Wants=bluetooth.service
+
+[Service]
+ExecStart=/usr/bin/couchbox-bt-agent
+Restart=on-failure
+
+[Install]
+WantedBy=bluetooth.target

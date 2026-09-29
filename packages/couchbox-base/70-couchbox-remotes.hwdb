@@ -1,0 +1,10 @@
+# Remote key fixes for Bigscreen. After editing: systemd-hwdb update &&
+# udevadm trigger --subsystem-match=input
+#
+# Bigscreen's tiles and buttons only react to the main Enter key (Qt
+# Key_Return), but many remotes send keypad Enter for OK (HID usage 0x70058,
+# KEY_KPENTER), so selecting a tile does nothing. Nothing on this box needs
+# keypad Enter to differ, so turn it into Enter on every USB and Bluetooth
+# HID device. Drop this once Bigscreen accepts Key_Enter too.
+evdev:input:*
+ KEYBOARD_KEY_70058=enter

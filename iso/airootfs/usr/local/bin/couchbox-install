@@ -131,11 +131,16 @@ ENTRY
 # Apply only couchbox's preset. `preset-all` would also turn on systemd's own
 # defaults (networkd-wait-online, resolved, homed), which fight NetworkManager.
 systemctl preset $(awk '$1 == "enable" { print $2 }' /usr/lib/systemd/system-preset/80-couchbox.preset)
+
+# Packages installed after couchbox-base in the pacstrap transaction may have
+# added apps, so regenerate the home-screen blacklist once everything is in.
+couchbox-update-app-blacklist
 EOF
 
-echo "==> Set a password for $user (used for sudo and SSH)"
+echo "==> Set a password for the '$user' user"
+echo "    root stays locked. For a console (Ctrl+Alt+F2), log in as '$user' and use sudo."
 if [[ $assume_yes -eq 0 ]]; then
-  arch-chroot /mnt passwd "$user"
+  until arch-chroot /mnt passwd "$user"; do echo "    try again"; done
 else
   echo "    skipped (--yes); $user stays locked. Autologin still works."
 fi

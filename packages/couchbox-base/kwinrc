@@ -1,0 +1,3 @@
+# Enable couchbox's KWin scripts for every user.
+[Plugins]
+couchbox-homeEnabled=true

@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Id": "couchbox-home",
+        "Name": "couchbox Home key",
+        "Description": "Home on the remote minimizes apps and shows the Bigscreen home screen",
+        "License": "MIT",
+        "EnabledByDefault": true
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js",
+    "KPackageStructure": "KWin/Script"
+}

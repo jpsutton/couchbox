@@ -4,3 +4,4 @@ packages/*/src/
 packages/*/pkg/
 *.pkg.tar.zst
 build.log
+__pycache__/

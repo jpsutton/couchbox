@@ -1,0 +1,7 @@
+# Apps shown on the Bigscreen home screen, one desktop file name per line
+# (without .desktop). Everything else in /usr/share/applications is hidden.
+# After editing, run couchbox-update-app-blacklist and restart the session.
+couchbox-jellyfin-desktop
+couchbox-kodi
+org.kde.plasma.bigscreen.settings
+org.kde.konsole

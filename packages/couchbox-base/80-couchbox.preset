@@ -2,5 +2,6 @@
 enable sddm.service
 enable NetworkManager.service
 enable bluetooth.service
+enable couchbox-bt-agent.service
 enable zerotier-one.service
 enable systemd-timesyncd.service

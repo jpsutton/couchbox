@@ -1,0 +1,9 @@
+# pacman loads hooks at the start of a transaction, so the blacklist hook
+# doesn't fire in the transaction that installs it. Run the update here too.
+post_install() {
+  couchbox-update-app-blacklist
+}
+
+post_upgrade() {
+  couchbox-update-app-blacklist
+}

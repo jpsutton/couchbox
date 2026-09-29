@@ -27,6 +27,9 @@ yet.
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
 | VA-API driver and microcode, picked by CPU vendor | installer |
 | HDMI off after 10 idle minutes, never system suspend | `couchbox-base` (PowerDevil) |
+| Home screen shows only the tiles, Konsole and Settings | `couchbox-base` (`/etc/couchbox/visible-apps`) |
+| Bluetooth pairing agent that accepts and trusts remotes | `couchbox-base` (`couchbox-bt-agent`) |
+| Home key goes to the home screen; OK (keypad Enter) selects | `couchbox-base` (KWin script, udev hwdb) |
 
 ## Idle display-off
 
@@ -90,6 +93,11 @@ matches each favorite on the `.desktop` file ID *and* the exact `Exec` line.
 installs it to `/etc/skel`. New users start with the tiles pinned. To add a
 client, add a `couchbox-*.desktop` file and list it in `_tiles` in the
 PKGBUILD.
+
+## Upstream bugs
+
+[UPSTREAM-BUGS.md](UPSTREAM-BUGS.md) tracks bugs found in upstream projects,
+mostly Plasma Bigscreen, along with the couchbox workaround for each.
 
 ## Roadmap
 
