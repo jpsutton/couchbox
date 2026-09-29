@@ -1,0 +1,6 @@
+work/
+out/
+packages/*/src/
+packages/*/pkg/
+*.pkg.tar.zst
+build.log

@@ -1,0 +1,15 @@
+# Blank the HDMI output (DPMS off) after 10 idle minutes so the TV sees
+# "no signal" and goes to sleep on its own. Any remote key wakes the output.
+# Playback holds an idle inhibit (Jellyfin Desktop over the
+# org.freedesktop.ScreenSaver D-Bus API, Kodi over Wayland idle-inhibit),
+# so the screen stays on during a movie.
+[AC][Display]
+DimDisplayWhenIdle=false
+TurnOffDisplayWhenIdle=true
+TurnOffDisplayIdleTimeoutSec=600
+LockBeforeTurnOffDisplay=false
+
+# Never suspend the box itself. A sleeping PC drops the Bluetooth remote
+# and ZeroTier, and a remote key would not wake it reliably.
+[AC][SuspendAndShutdown]
+AutoSuspendAction=0

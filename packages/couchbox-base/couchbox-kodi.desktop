@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Kodi
+Comment=Kodi with the Jellyfin add-ons
+Exec=kodi
+Icon=kodi
+Terminal=false
+Categories=AudioVideo;Video;Player;TV;

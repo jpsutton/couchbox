@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# Install couchbox onto a whole disk. ERASES the target disk.
+#
+#   couchbox-install [--yes] [--hostname NAME] [--timezone ZONE] DISK
+#
+# Layout: GPT, 1 GiB ESP at /boot (systemd-boot), ext4 root on the rest.
+set -euo pipefail
+
+hostname=couchbox
+timezone=UTC
+user=htpc
+assume_yes=0
+repo_dir=/var/lib/couchbox/repo
+
+usage() { sed -n '2,6s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
+die() { echo "couchbox-install: $*" >&2; exit 1; }
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --yes) assume_yes=1 ;;
+    --hostname) hostname=${2:?}; shift ;;
+    --timezone) timezone=${2:?}; shift ;;
+    -h|--help) usage ;;
+    -*) usage 1 ;;
+    *) [[ -z ${disk:-} ]] || usage 1; disk=$1 ;;
+  esac
+  shift
+done
+
+[[ -n ${disk:-} ]] || usage 1
+[[ $EUID -eq 0 ]] || die "run as root"
+[[ $(uname -m) == x86_64 ]] || die "only x86_64 is supported so far"
+[[ -d /sys/firmware/efi ]] || die "boot the installer in UEFI mode"
+[[ -b $disk && $(lsblk -dno TYPE "$disk") == disk ]] || die "$disk is not a whole disk"
+[[ -e /usr/share/zoneinfo/$timezone ]] || die "unknown timezone: $timezone"
+live=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null || true)
+[[ -z $live || $(lsblk -no PKNAME "$live") != "${disk#/dev/}" ]] || die "$disk holds the installer"
+
+lsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINTS "$disk"
+if [[ $assume_yes -eq 0 ]]; then
+  read -rp "Erase ALL data on $disk? Type the disk name to confirm: " answer
+  [[ $answer == "$disk" || $answer == "${disk#/dev/}" ]] || die "aborted"
+fi
+
+case $(grep -m1 -Po '^vendor_id\s*:\s*\K\S+' /proc/cpuinfo) in
+  # intel-media-driver (iHD) covers Broadwell and newer; libva-intel-driver
+  # (i965) covers older chips such as Bay Trail. libva tries iHD first.
+  GenuineIntel) hw=(intel-ucode intel-media-driver libva-intel-driver) ;;
+  AuthenticAMD) hw=(amd-ucode) ;;  # mesa provides VA-API for AMD
+  *) hw=() ;;
+esac
+
+echo "==> Partitioning $disk"
+wipefs -a "$disk"
+sfdisk --wipe always "$disk" <<'EOF'
+label: gpt
+size=1GiB, type=uefi, name=COUCHBOX_ESP
+type=linux, name=COUCHBOX_ROOT
+EOF
+partprobe "$disk" 2>/dev/null || true
+udevadm settle
+# Use the kernel's partition nodes, not /dev/disk/by-partlabel links, which
+# udev may not have updated yet on real hardware.
+mapfile -t parts < <(lsblk -lnpo NAME,TYPE "$disk" | awk '$2 == "part" { print $1 }')
+[[ ${#parts[@]} -eq 2 ]] || die "expected 2 partitions on $disk, found ${#parts[@]}"
+esp=${parts[0]} rootdev=${parts[1]}
+
+# A new partition can start where an old filesystem did. Clear leftover
+# signatures so blkid doesn't see two filesystems on one partition.
+wipefs -a "$esp" "$rootdev"
+mkfs.fat -F 32 -n ESP "$esp"
+mkfs.ext4 -F -L couchbox "$rootdev"
+udevadm settle
+[[ $(blkid -p -s TYPE -o value "$rootdev") == ext4 ]] || die "no ext4 found on $rootdev after mkfs; see wipefs $rootdev"
+
+mount -t ext4 "$rootdev" /mnt
+mount --mkdir -t vfat -o fmask=0077,dmask=0077 "$esp" /mnt/boot
+trap 'umount -R /mnt 2>/dev/null || true' EXIT
+
+echo "==> Installing packages"
+# Written before pacstrap so the first mkinitcpio run finds it.
+mkdir -p /mnt/etc
+echo KEYMAP=us > /mnt/etc/vconsole.conf
+conf=$(mktemp)
+cat /etc/pacman.conf - > "$conf" <<EOF
+
+[couchbox]
+SigLevel = Optional TrustAll
+Server = file://$repo_dir
+EOF
+pacstrap -C "$conf" -K /mnt base linux linux-firmware sudo "${hw[@]}" couchbox-base
+genfstab -U /mnt >> /mnt/etc/fstab
+
+# Keep the repo on the box so pacman can resolve the AUR builds later.
+mkdir -p "/mnt${repo_dir%/*}"
+cp -r "$repo_dir" "/mnt$repo_dir"
+tail -n 4 "$conf" >> /mnt/etc/pacman.conf
+
+echo "==> Configuring system"
+root_partuuid=$(blkid -s PARTUUID -o value "$rootdev")
+arch-chroot /mnt /bin/bash -euo pipefail -s -- "$hostname" "$timezone" "$user" "$root_partuuid" <<'EOF'
+hostname=$1 timezone=$2 user=$3 root_partuuid=$4
+
+ln -sf "/usr/share/zoneinfo/$timezone" /etc/localtime
+hwclock --systohc
+sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+echo LANG=en_US.UTF-8 > /etc/locale.conf
+echo "$hostname" > /etc/hostname
+
+# input: CEC and remotes via the Bigscreen input handler. uucp: USB CEC adapters.
+useradd -m -G wheel,input,uucp -s /bin/bash "$user"
+passwd -l "$user"
+passwd -l root
+echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/10-wheel
+chmod 440 /etc/sudoers.d/10-wheel
+
+bootctl install
+cat > /boot/loader/loader.conf <<LOADER
+default couchbox.conf
+timeout 0
+editor no
+LOADER
+cat > /boot/loader/entries/couchbox.conf <<ENTRY
+title   couchbox
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options root=PARTUUID=$root_partuuid rw quiet splash
+ENTRY
+
+# Apply only couchbox's preset. `preset-all` would also turn on systemd's own
+# defaults (networkd-wait-online, resolved, homed), which fight NetworkManager.
+systemctl preset $(awk '$1 == "enable" { print $2 }' /usr/lib/systemd/system-preset/80-couchbox.preset)
+EOF
+
+echo "==> Set a password for $user (used for sudo and SSH)"
+if [[ $assume_yes -eq 0 ]]; then
+  arch-chroot /mnt passwd "$user"
+else
+  echo "    skipped (--yes); $user stays locked. Autologin still works."
+fi
+
+echo "==> Done. Remove the installer medium and reboot."

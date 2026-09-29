@@ -1,0 +1,5 @@
+# Bigscreen holds a system-wide power inhibit by default, which stops
+# PowerDevil from ever turning the display off. Turn it off so the idle
+# display-off in powerdevilrc can work.
+[General]
+pmInhibitionEnabled=false

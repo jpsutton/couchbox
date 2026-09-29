@@ -1,0 +1,69 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# Meta package for the couchbox appliance. It pulls in the Bigscreen session
+# and the Jellyfin clients, and ships the config that turns a plain Arch
+# install into the appliance: autologin, service presets, and home-screen tiles.
+
+pkgname=couchbox-base
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
+arch=(any)
+license=(MIT)
+depends=(
+  # Session
+  plasma-bigscreen plasma-nm plasma-pa kscreen powerdevil xdg-desktop-portal-kde sddm
+  # Hardware and networking
+  networkmanager bluez bluez-utils libcec pipewire pipewire-pulse wireplumber
+  zerotier-one
+  # Clients (jellyfin-desktop and the Kodi add-ons come from the AUR, see aur.txt)
+  kodi kodi-addon-jellyfin kodi-addon-jellycon jellyfin-desktop
+  noto-fonts
+)
+backup=(etc/sddm.conf.d/couchbox.conf)
+# Tile order on the home screen follows this list.
+_tiles=(couchbox-jellyfin-desktop.desktop couchbox-kodi.desktop)
+source=(
+  sddm-couchbox.conf
+  kscreenlockerrc
+  powerdevilrc
+  plasmabigscreenrc
+  80-couchbox.preset
+  "${_tiles[@]}"
+)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+
+package() {
+  install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
+  install -Dm644 kscreenlockerrc "$pkgdir/etc/xdg/kscreenlockerrc"
+  install -Dm644 powerdevilrc "$pkgdir/etc/xdg/powerdevilrc"
+  install -Dm644 plasmabigscreenrc "$pkgdir/etc/xdg/plasmabigscreenrc"
+  install -Dm644 80-couchbox.preset "$pkgdir/usr/lib/systemd/system-preset/80-couchbox.preset"
+
+  local tile
+  for tile in "${_tiles[@]}"; do
+    install -Dm644 "$tile" "$pkgdir/usr/share/applications/$tile"
+  done
+
+  # Pre-pin the tiles as Bigscreen favorites for users created after install.
+  # Bigscreen matches a favorite on storageId *and* the Exec line (stored as
+  # entryPath), so generate the file from the .desktop files to keep them in sync.
+  local favs="$pkgdir/etc/skel/.config/bigscreen-favs" i=0 key
+  install -d "${favs%/*}"
+  for tile in "${_tiles[@]}"; do
+    printf '[Favs][%d]\n' "$i"
+    printf 'storageId=%s\n' "$tile"
+    printf 'desktopPath=/usr/share/applications/%s\n' "$tile"
+    for key in Exec Name Comment Icon Categories; do
+      local val
+      val=$(sed -n "s/^$key=//p" "$tile" | head -n1)
+      case $key in
+        Exec) key=entryPath ;;
+        Categories) val=${val%;}; val=${val//;/,} ;;
+      esac
+      printf '%s=%s\n' "${key,}" "$val"
+    done
+    printf 'startupNotify=false\n\n'
+    i=$((i + 1))
+  done > "$favs"
+}

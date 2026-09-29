@@ -1,0 +1,7 @@
+
+couchbox installer
+
+  1. Connect to the network (ethernet, or `iwctl` for Wi-Fi).
+  2. Find the target disk with `lsblk`.
+  3. Run `couchbox-install /dev/<disk>`. This ERASES the whole disk.
+

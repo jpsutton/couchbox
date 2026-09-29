@@ -1,0 +1,6 @@
+# AUR packages built into the local couchbox repo, in build order.
+# Format: <package> [<local dependency built earlier in this file>...]
+python-kodi_six
+kodi-addon-jellyfin python-kodi_six
+kodi-addon-jellycon python-kodi_six
+jellyfin-desktop

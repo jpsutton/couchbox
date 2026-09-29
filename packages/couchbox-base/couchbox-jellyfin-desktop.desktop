@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Jellyfin
+Comment=Jellyfin Desktop in TV mode
+Exec=jellyfin-desktop --fullscreen --tv
+Icon=org.jellyfin.JellyfinDesktop
+Terminal=false
+StartupWMClass=org.jellyfin.JellyfinDesktop
+Categories=AudioVideo;Video;Player;TV;

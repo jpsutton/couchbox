@@ -1,0 +1,6 @@
+# Applied by couchbox-install (`systemctl preset` on each unit listed here).
+enable sddm.service
+enable NetworkManager.service
+enable bluetooth.service
+enable zerotier-one.service
+enable systemd-timesyncd.service

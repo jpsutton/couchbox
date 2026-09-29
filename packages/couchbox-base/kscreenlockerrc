@@ -1,0 +1,4 @@
+# An autologin TV box should never show a lock screen.
+[Daemon]
+Autolock=false
+LockOnResume=false
