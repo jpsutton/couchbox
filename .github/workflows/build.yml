@@ -53,3 +53,40 @@ jobs:
           path: couchbox/out/repo/
           if-no-files-found: error
           retention-days: 14
+
+  iso:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: couchbox-repo
+          path: out/repo
+
+      # Privileged: mkarchiso (pacstrap) mounts /proc, /sys and /dev in the image root.
+      - name: Build ISO (archlinux container)
+        run: |
+          docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src archlinux:base-devel scripts/ci/build-iso.sh
+
+      # GitHub release assets are limited to 2 GiB each.
+      - name: ISO size
+        run: |
+          ls -la out/*.iso
+          size=$(stat -c %s out/*.iso)
+          echo "ISO: $((size / 1048576)) MiB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -ge 2147483648 ]; then
+            echo "::warning::ISO is over 2 GiB, the GitHub release asset limit"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-iso
+          path: out/*.iso
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
