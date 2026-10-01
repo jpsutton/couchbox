@@ -3,7 +3,12 @@
 # offline repo, so any box installs without a network connection.
 #
 # Format: <set>: <package>...   (sets: all, intel, amd)
-all: base linux linux-firmware sudo couchbox-base
+#
+# Firmware: what linux-firmware pulls in, minus linux-firmware-nvidia (99 MiB;
+# couchbox has no NVIDIA support) and linux-firmware-liquidio (datacenter NICs),
+# so the ISO fits GitHub's 2 GiB release asset limit.
+all: base linux sudo couchbox-base
+all: linux-firmware-amd linux-firmware-amdgpu linux-firmware-atheros linux-firmware-broadcom linux-firmware-cirrus linux-firmware-intel linux-firmware-mediatek linux-firmware-other linux-firmware-radeon linux-firmware-realtek linux-firmware-ti
 # iHD covers Broadwell and newer, i965 older chips such as Bay Trail; libva
 # tries iHD first. Vulkan: Jellium's shell overlay exits without it.
 intel: intel-ucode intel-media-driver libva-intel-driver vulkan-intel

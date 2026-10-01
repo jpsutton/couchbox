@@ -2,9 +2,9 @@
 # Build the couchbox installer ISO from the archiso releng profile, with:
 #   - a minimal live environment (iso/packages.x86_64), UEFI boot only
 #   - an offline repo holding everything couchbox-install puts on a target
-#     (iso/target-packages plus all dependencies), so installs need no network
-#   - the couchbox repo from scripts/build-repo.sh, copied to the target for
-#     later updates
+#     (iso/target-packages plus all dependencies, the couchbox repo from
+#     scripts/build-repo.sh included), so installs need no network. Installed
+#     boxes update couchbox packages from the signed repo on GitHub releases.
 #
 # Needs: archiso, pacman-contrib. Run as root (mkarchiso requires it).
 set -euo pipefail
@@ -19,6 +19,7 @@ offline=$work/offline
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
 [[ -e $repo/couchbox.db ]] || { echo "no repo at $repo; run scripts/build-repo.sh first" >&2; exit 1; }
 
+mkdir -p "$work"
 rm -rf "$profile" "$work/iso"
 cp -r /usr/share/archiso/configs/releng "$profile"
 cp -rT "$root/iso/airootfs" "$profile/airootfs"
@@ -70,7 +71,6 @@ echo "offline repo: $(ls "$offline"/*.pkg.tar.zst | wc -l) packages, $(du -sh "$
 
 lib=$profile/airootfs/var/lib/couchbox
 mkdir -p "$lib" "$profile/airootfs/etc/couchbox"
-cp -r "$repo" "$lib/repo"
 cp -r "$offline" "$lib/offline"
 cp "$root/iso/target-packages" "$profile/airootfs/etc/couchbox/target-packages"
 
