@@ -1,0 +1,20 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# Kodi context-menu add-on: Shuffle on a TV show or season in the video
+# library plays its episodes in random order. Kept in this repo; no upstream.
+
+pkgname=kodi-addon-couchbox-shuffle
+pkgver=1.2.0
+pkgrel=1
+pkgdesc="Kodi context menu: shuffle a TV show's or season's episodes"
+arch=(any)
+license=(MIT)
+depends=(kodi)
+source=(addon.xml shuffle.py)
+sha256sums=(SKIP SKIP)
+
+package() {
+  local dir="$pkgdir/usr/share/kodi/addons/context.couchbox.shuffle"
+  install -Dm644 addon.xml "$dir/addon.xml"
+  install -Dm644 shuffle.py "$dir/shuffle.py"
+}

@@ -1,0 +1,33 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# A "couchbox" page in Bigscreen Settings for couchbox's own options (stored in
+# ~/.config/couchboxrc). Kept in this repo; no upstream.
+
+pkgname=couchbox-settings
+pkgver=1.0.0
+pkgrel=2
+pkgdesc="couchbox options page for Plasma Bigscreen Settings"
+arch=(x86_64)
+license=(MIT)
+# Not plasma-bigscreen: the page only ever runs inside Bigscreen Settings, and
+# listing it would pull the whole Plasma session into the build chroot.
+depends=(kcmutils kconfig kcoreaddons qt6-declarative)
+makedepends=(cmake extra-cmake-modules)
+source=(CMakeLists.txt couchbox.cpp kcm_mediacenter_couchbox.json main.qml)
+sha256sums=(SKIP SKIP SKIP SKIP)
+
+prepare() {
+  # makepkg flattens the sources; put the tree back together.
+  mkdir -p tree/ui
+  cp CMakeLists.txt couchbox.cpp kcm_mediacenter_couchbox.json tree/
+  cp main.qml tree/ui/
+}
+
+build() {
+  cmake -B build -S tree -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}

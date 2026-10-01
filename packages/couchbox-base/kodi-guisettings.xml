@@ -1,0 +1,13 @@
+<!-- couchbox defaults for a new user's Kodi (copied from /etc/skel). Kodi
+     keeps its own default for every setting not listed and rewrites this file
+     in full on exit.
+
+     Audio: 5.1 is decoded and downmixed to stereo for TV speakers, keeping the
+     original level (maintain original volume, Kodi's default) and raising the
+     center channel, where dialog sits, by 8 dB. Passthrough stays off (Kodi's
+     default), since the TV would then decode AC-3 itself without the boost. -->
+<settings version="2">
+    <defaultvideosettings>
+        <centermixlevel>8</centermixlevel>
+    </defaultvideosettings>
+</settings>

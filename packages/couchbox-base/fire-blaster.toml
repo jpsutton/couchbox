@@ -1,0 +1,72 @@
+# fire-blaster on couchbox. All settings: /usr/share/doc/fire-blaster/config.example.toml
+
+[device]
+# The Alexa Voice Remote (fire-blaster's defaults), plus Windows Media Center
+# (RC6) remotes on an IR receiver the kernel decodes: the NUC's built-in
+# ITE CIR ("ITE8713 CIR transceiver", ite-cir) or the Microsoft USB receiver
+# ("... eHome Infrared Transceiver", mceusb). Both load the rc-rc6-mce keymap.
+names = ["^AR( Keyboard)?$", "Amazon", "Fire ?TV", "CIR transceiver$", "eHome Infrared"]
+
+# Empty until an IR blaster is fitted: fire-blaster's IR output is still a
+# stub.
+[keys]
+
+# The Alexa remote sends volume and mute to the TV over its own IR (set up in
+# the remote's TV pairing), so the PC must ignore them: passed through, Plasma
+# would also change the PipeWire volume. Remove this section on a TV the
+# remote can't control, so the keys reach Plasma again.
+#
+# Media Center remotes have no section: a genuine Microsoft remote (model
+# 1039) can learn the TV's volume and power codes, and those learned buttons
+# send only the TV's IR, never RC6, so nothing reaches the PC to drop. On
+# knockoffs without IR learning, volume and mute arrive as RC6 and go to the
+# PC. Once an IR blaster is fitted, a remote's dropped or passed keys can blast
+# instead, through its own `keys`.
+[[remote]]
+names = ["^AR( Keyboard)?$", "Amazon", "Fire ?TV"]
+drop = ["KEY_VOLUMEUP", "KEY_VOLUMEDOWN", "KEY_MUTE"]
+
+# The remote's keys as apps expect them. Applied before [setup] and [hold].
+[remap]
+# OK sends keypad Enter; Bigscreen's tiles only react to the main Enter key.
+KEY_KPENTER = "KEY_ENTER"
+# Menu sends KEY_MENU, which XKB turns into XF86MenuKB. The key apps and
+# shortcuts call "Menu" (Qt Key_Menu) is KEY_COMPOSE.
+KEY_MENU = "KEY_COMPOSE"
+# Power turns the TV on over IR. Sent on as F24, which nothing binds (not
+# logind, not Plasma, not the apps), it is still a plain key press, so KWin
+# wakes the display from idle blanking and the TV comes on to a picture
+# instead of "no signal". Not KEY_WAKEUP: KWin deliberately ignores Wake Up
+# and media keys for waking the screen.
+KEY_POWER = "KEY_F24"
+# Media Center remotes (rc-rc6-mce keymap):
+# OK is KEY_OK, which Bigscreen ignores, like keypad Enter above.
+KEY_OK = "KEY_ENTER"
+# Back is KEY_EXIT; Bigscreen and the apps go back on KEY_BACK.
+KEY_EXIT = "KEY_BACK"
+# The green Windows button is KEY_MEDIA: make it Home, short and long press.
+KEY_MEDIA = "KEY_HOMEPAGE"
+# Power is KEY_SLEEP (and KEY_POWER2 on some), which logind would turn into
+# suspend or power-off. As F24 it only wakes the screen, like Power above; the
+# grab keeps logind from seeing the original key.
+KEY_SLEEP = "KEY_F24"
+KEY_POWER2 = "KEY_F24"
+
+[setup]
+# Back + OK, with OK already remapped to KEY_ENTER.
+combo = ["KEY_BACK", "KEY_ENTER"]
+
+# A short press goes to the app in front; a long press sends a Meta chord for
+# the system action (bound in /etc/xdg/kglobalshortcutsrc and the
+# couchbox-home KWin script).
+#   Home: short = the app's own home screen; long = Bigscreen launcher
+[hold.KEY_HOMEPAGE]
+seconds = 0.6
+send = ["KEY_LEFTMETA", "KEY_HOMEPAGE"]
+
+#   Menu (remapped to KEY_COMPOSE above): short = the app's menu key (Kodi:
+#   context menu); long = Bigscreen's home overlay, on its default shortcut
+#   Meta+O (Tasks page: hold OK on an app to close it)
+[hold.KEY_COMPOSE]
+seconds = 0.6
+send = ["KEY_LEFTMETA", "KEY_O"]

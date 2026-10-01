@@ -1,0 +1,78 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# Jellium Desktop, built with the CEF version upstream pins in Cargo.lock.
+#
+# The AUR's jellium-desktop-git links against Arch's system cef, which is a
+# different major version (152) than the one the code is written for (151).
+# That build hangs inside CefInitialize. Here `cargo xtask` downloads the
+# pinned CEF and stages it next to the binary in /opt, as upstream's AppImage
+# does.
+
+pkgname=jellium-desktop
+_commit=14dc0845981cb7c0aef5fa93ff539d927c8f0eb2
+pkgver=0.r1155.14dc084
+pkgrel=4
+pkgdesc="Unofficial Jellyfin desktop client built on CEF and mpv (TV layout and hardware decoding by default)"
+arch=(x86_64)
+url="https://github.com/andrewrabert/jellium-desktop"
+license=(GPL-2.0-only)
+depends=(
+  mpv libglvnd libxcb libxkbcommon libxkbcommon-x11 wayland xdg-utils
+  # CEF runtime (same list as Arch's cef package)
+  alsa-lib at-spi2-core dbus libdrm libffi libpulse libxcomposite libxdamage
+  libxrandr mesa nss pango systemd-libs fontconfig
+  # Jellium's shell overlay needs a Vulkan device and exits without one
+  vulkan-icd-loader
+)
+makedepends=(clang git rust)
+provides=(jellium-desktop)
+conflicts=(jellium-desktop-git jellium-desktop-bin)
+options=(!debug !lto)
+source=("git+$url.git#commit=$_commit"
+        0001-map-xf86-browser-and-media-keys.patch)
+sha256sums=(SKIP SKIP)
+
+prepare() {
+  cd jellium-desktop
+  # Remote keys (Home Page, media keys) reach the page as unidentified keys
+  # without a Windows VK code, so jellyfin-web ignores them.
+  patch -Np1 -i ../0001-map-xf86-browser-and-media-keys.patch
+
+  # Jellium reports a fixed desktop layout to jellyfin-web and has no TV-mode
+  # option. On a TV box the default must be TV, or the arrow keys scroll
+  # instead of moving between items. The shim is compiled in (include_str!),
+  # so patch it before building. A layout chosen in Jellyfin's display
+  # settings still overrides this.
+  grep -q "mode: 'desktop'," src/web/native-shim.js
+  sed -i "s/mode: 'desktop',/mode: 'tv',/" src/web/native-shim.js
+
+  # Upstream defaults hardware decoding to "no", mirroring mpv's own default.
+  # Software decoding wastes the box's CPU and can't keep up on weak ones
+  # (HEVC on a Bay Trail), so default to "auto". A mode picked in the client
+  # settings still overrides it.
+  grep -q '^pub const HWDEC_DEFAULT: &str = "no";' src/config/src/hardware_decode.rs
+  sed -i 's/^pub const HWDEC_DEFAULT: &str = "no";/pub const HWDEC_DEFAULT: \&str = "auto";/' \
+    src/config/src/hardware_decode.rs
+}
+
+build() {
+  cd jellium-desktop
+  cargo xtask build --external-mpv /usr --out build
+}
+
+package() {
+  cd jellium-desktop
+  cargo xtask install --skip-build --external-mpv /usr --out build \
+    --prefix "$pkgdir/opt/jellium-desktop"
+
+  install -d "$pkgdir/usr/bin"
+  printf '#!/bin/sh\nexec /opt/jellium-desktop/jellium-desktop "$@"\n' \
+    > "$pkgdir/usr/bin/jellium-desktop"
+  chmod 755 "$pkgdir/usr/bin/jellium-desktop"
+
+  install -Dm644 resources/linux/net.nullsum.JelliumDesktop.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/net.nullsum.JelliumDesktop.svg"
+  install -Dm644 resources/linux/net.nullsum.JelliumDesktop.desktop \
+    "$pkgdir/usr/share/applications/net.nullsum.JelliumDesktop.desktop"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

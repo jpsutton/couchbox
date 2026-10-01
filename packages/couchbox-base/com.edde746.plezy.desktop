@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Plezy
+Comment=Plezy, native Jellyfin client (couchbox tile)
+Exec=plezy
+Icon=plezy
+Terminal=false
+StartupWMClass=plezy
+Categories=AudioVideo;Video;Player;TV;

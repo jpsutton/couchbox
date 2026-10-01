@@ -1,0 +1,38 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# fire-blaster: grabs the Bluetooth remote, passes its keys on through a
+# uinput clone, turns volume/mute/power into IR, and gives keys a long-press
+# action. Built from the fire-blaster working tree next to this repo:
+# scripts/build-repo.sh packs it into fire-blaster-src.tar.gz and writes
+# srcstamp (the newest file's mtime), so each change gets a newer pkgver.
+
+pkgname=fire-blaster
+pkgver=0.1.0.r$(<srcstamp)
+pkgrel=1
+pkgdesc="Bluetooth remote keys to IR for the TV, plus long-press key actions"
+arch=(any)
+url="https://github.com/jpsutton/service.irblaster"
+license=(MIT)
+depends=(python python-evdev)
+makedepends=(python-build python-installer python-setuptools python-wheel)
+optdepends=('pyside6: fireblaster-setup, the on-screen setup overlay')
+source=(fire-blaster-src.tar.gz)
+sha256sums=(SKIP)
+
+build() {
+  cd fire-blaster
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd fire-blaster
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 systemd/fireblasterd.service "$pkgdir/usr/lib/systemd/system/fireblasterd.service"
+  install -Dm644 udev/70-fire-blaster.rules "$pkgdir/usr/lib/udev/rules.d/70-fire-blaster.rules"
+  install -Dm644 config.example.toml "$pkgdir/usr/share/doc/fire-blaster/config.example.toml"
+  install -Dm644 -t "$pkgdir/usr/share/fire-blaster/desktop" desktop/*.desktop
+  # TV code sets, generated from the Amazon Fire TV IR database.
+  install -d "$pkgdir/usr/share/fire-blaster"
+  cp -r profiles "$pkgdir/usr/share/fire-blaster/profiles"
+  chmod -R u=rwX,go=rX "$pkgdir/usr/share/fire-blaster/profiles"
+}

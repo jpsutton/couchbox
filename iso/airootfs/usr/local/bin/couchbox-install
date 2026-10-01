@@ -1,19 +1,57 @@
 #!/usr/bin/env bash
 # Install couchbox onto a whole disk. ERASES the target disk.
 #
+#   couchbox-install                          menus: pick the disk, set a password
 #   couchbox-install [--yes] [--hostname NAME] [--timezone ZONE] DISK
 #
 # Layout: GPT, 1 GiB ESP at /boot (systemd-boot), ext4 root on the rest.
+# Installs from the offline repo on the ISO, so no network is needed.
 set -euo pipefail
 
 hostname=couchbox
 timezone=UTC
 user=htpc
 assume_yes=0
-repo_dir=/var/lib/couchbox/repo
+repo_dir=/var/lib/couchbox/repo        # couchbox packages, kept on the target
+offline_dir=/var/lib/couchbox/offline  # everything the install needs
+target_list=/etc/couchbox/target-packages
 
-usage() { sed -n '2,6s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
+usage() { sed -n '2,7s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
 die() { echo "couchbox-install: $*" >&2; exit 1; }
+
+# whiptail writes the choice to stderr; swap it onto stdout for capture.
+tui() { whiptail --title "couchbox installer" "$@" 3>&1 1>&2 2>&3; }
+
+# The disk the installer booted from, if any, so it is never offered.
+installer_disk() {
+  local live
+  live=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null) || return 0
+  lsblk -no PKNAME "$live" 2>/dev/null
+}
+
+# describe <disk>: "119.2G  Samsung SSD 970 (nvme)". One lsblk call per
+# column, because MODEL and TRAN can each be empty or contain spaces.
+describe() {
+  local size model tran
+  size=$(lsblk -dno SIZE "$1" | sed 's/^ *//; s/ *$//')
+  model=$(lsblk -dno MODEL "$1" | sed 's/^ *//; s/ *$//')
+  tran=$(lsblk -dno TRAN "$1" | sed 's/^ *//; s/ *$//')
+  printf '%s  %s%s' "$size" "${model:-unknown model}" "${tran:+ ($tran)}"
+}
+
+pick_disk() {
+  local skip name items=()
+  skip=$(installer_disk)
+  while read -r name; do
+    [[ ${name#/dev/} == "$skip" ]] && continue
+    items+=("$name" "$(describe "$name")")
+  # Real disks only: zram swap also reports TYPE=disk, and empty card-reader
+  # slots report size 0.
+  done < <(lsblk -dnpo NAME,TYPE,SIZE -b | awk '$2 == "disk" && $3 > 0 && $1 !~ /\/zram/ { print $1 }')
+  [[ ${#items[@]} -gt 0 ]] || die "no disks found to install on"
+  tui --menu "Install couchbox on which disk?\n\nThe disk you pick is ERASED completely." \
+    18 72 8 "${items[@]}"
+}
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -27,28 +65,43 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-[[ -n ${disk:-} ]] || usage 1
+# No disk on the command line: interactive install through menus.
+interactive=0
+if [[ -z ${disk:-} ]]; then
+  [[ $assume_yes -eq 0 ]] || usage 1
+  interactive=1
+fi
+
 [[ $EUID -eq 0 ]] || die "run as root"
 [[ $(uname -m) == x86_64 ]] || die "only x86_64 is supported so far"
 [[ -d /sys/firmware/efi ]] || die "boot the installer in UEFI mode"
-[[ -b $disk && $(lsblk -dno TYPE "$disk") == disk ]] || die "$disk is not a whole disk"
 [[ -e /usr/share/zoneinfo/$timezone ]] || die "unknown timezone: $timezone"
-live=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null || true)
-[[ -z $live || $(lsblk -no PKNAME "$live") != "${disk#/dev/}" ]] || die "$disk holds the installer"
 
-lsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINTS "$disk"
-if [[ $assume_yes -eq 0 ]]; then
-  read -rp "Erase ALL data on $disk? Type the disk name to confirm: " answer
-  [[ $answer == "$disk" || $answer == "${disk#/dev/}" ]] || die "aborted"
+if [[ $interactive -eq 1 ]]; then
+  disk=$(pick_disk) || die "cancelled; run couchbox-install to start again"
 fi
 
+[[ -b $disk && $(lsblk -dno TYPE "$disk") == disk ]] || die "$disk is not a whole disk"
+[[ $(installer_disk) != "${disk#/dev/}" ]] || die "$disk holds the installer"
+lsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINTS "$disk"
+
+# Always confirm unless --yes, whether the disk came from the menu or the
+# command line. The default answer is No.
+if [[ $assume_yes -eq 0 ]]; then
+  tui --defaultno --yesno "Erase ALL data on $disk?\n\n$(describe "$disk")\n\nThis cannot be undone." 12 64 ||
+    die "cancelled; nothing was changed"
+fi
+
+# packages <set>: one set from target-packages (that file says why each is there).
+packages() { sed -n "s/^$1: *//p" "$target_list"; }
 case $(grep -m1 -Po '^vendor_id\s*:\s*\K\S+' /proc/cpuinfo) in
-  # intel-media-driver (iHD) covers Broadwell and newer; libva-intel-driver
-  # (i965) covers older chips such as Bay Trail. libva tries iHD first.
-  GenuineIntel) hw=(intel-ucode intel-media-driver libva-intel-driver) ;;
-  AuthenticAMD) hw=(amd-ucode) ;;  # mesa provides VA-API for AMD
-  *) hw=() ;;
+  GenuineIntel) vendor=intel ;;
+  AuthenticAMD) vendor=amd ;;
+  *) vendor= ;;
 esac
+# shellcheck disable=SC2207  # package names contain no spaces
+pkgs=($(packages all) $([[ -z $vendor ]] || packages "$vendor"))
+[[ ${#pkgs[@]} -gt 0 ]] || die "no packages listed in $target_list"
 
 echo "==> Partitioning $disk"
 wipefs -a "$disk"
@@ -82,19 +135,32 @@ echo "==> Installing packages"
 mkdir -p /mnt/etc
 echo KEYMAP=us > /mnt/etc/vconsole.conf
 conf=$(mktemp)
-cat /etc/pacman.conf - > "$conf" <<EOF
+cat > "$conf" <<EOF
+[options]
+Architecture = auto
+SigLevel = Required DatabaseOptional
+
+[couchbox-offline]
+SigLevel = Optional TrustAll
+Server = file://$offline_dir
+EOF
+# -M: don't copy the live mirrorlist; the target gets its own below.
+pacstrap -C "$conf" -K -M /mnt "${pkgs[@]}"
+genfstab -U /mnt >> /mnt/etc/fstab
+
+# For online updates later: Arch's geo-balanced mirror (the packaged
+# mirrorlist has every server commented out), plus the couchbox repo kept on
+# the box so pacman can still resolve the AUR builds.
+sed -i '0,/^#Server/s|^#Server|Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n&|' \
+  /mnt/etc/pacman.d/mirrorlist
+mkdir -p "/mnt${repo_dir%/*}"
+cp -r "$repo_dir" "/mnt$repo_dir"
+cat >> /mnt/etc/pacman.conf <<EOF
 
 [couchbox]
 SigLevel = Optional TrustAll
 Server = file://$repo_dir
 EOF
-pacstrap -C "$conf" -K /mnt base linux linux-firmware sudo "${hw[@]}" couchbox-base
-genfstab -U /mnt >> /mnt/etc/fstab
-
-# Keep the repo on the box so pacman can resolve the AUR builds later.
-mkdir -p "/mnt${repo_dir%/*}"
-cp -r "$repo_dir" "/mnt$repo_dir"
-tail -n 4 "$conf" >> /mnt/etc/pacman.conf
 
 echo "==> Configuring system"
 root_partuuid=$(blkid -s PARTUUID -o value "$rootdev")
@@ -137,12 +203,33 @@ systemctl preset $(awk '$1 == "enable" { print $2 }' /usr/lib/systemd/system-pre
 couchbox-update-app-blacklist
 EOF
 
-echo "==> Set a password for the '$user' user"
-echo "    root stays locked. For a console (Ctrl+Alt+F2), log in as '$user' and use sudo."
+# set_password: ask twice; an empty password keeps the account locked.
+# The password goes to chpasswd on stdin, never on a command line.
+set_password() {
+  local pw1 pw2 text="Password for the '$user' user, for sudo and SSH.\n\nroot stays locked; on a console (Ctrl+Alt+F2) log in as '$user'.\nLeave empty to keep '$user' locked (autologin still works)."
+  while true; do
+    pw1=$(tui --passwordbox "$text" 14 70) || return 0
+    [[ -n $pw1 ]] || return 0
+    pw2=$(tui --passwordbox "Type the password again." 8 70) || return 0
+    if [[ $pw1 == "$pw2" ]]; then
+      printf '%s:%s\n' "$user" "$pw1" | arch-chroot /mnt chpasswd
+      return 0
+    fi
+    text="The passwords did not match. Try again.\n\nLeave empty to keep '$user' locked."
+  done
+}
+
 if [[ $assume_yes -eq 0 ]]; then
-  until arch-chroot /mnt passwd "$user"; do echo "    try again"; done
+  set_password
 else
-  echo "    skipped (--yes); $user stays locked. Autologin still works."
+  echo "==> No password set (--yes); $user stays locked. Autologin still works."
 fi
 
-echo "==> Done. Remove the installer medium and reboot."
+if [[ $interactive -eq 1 ]]; then
+  umount -R /mnt
+  if tui --yesno "couchbox is installed on $disk.\n\nRemove the USB stick, then choose Yes to reboot." 10 64; then
+    systemctl reboot
+  fi
+else
+  echo "==> Done. Remove the installer medium and reboot."
+fi

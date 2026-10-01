@@ -2,7 +2,7 @@
     "KPlugin": {
         "Id": "couchbox-home",
         "Name": "couchbox Home key",
-        "Description": "Home on the remote minimizes apps and shows the Bigscreen home screen",
+        "Description": "Holding Home on the remote (Meta+Home Page) minimizes apps and shows the Bigscreen home screen",
         "License": "MIT",
         "EnabledByDefault": true
     },

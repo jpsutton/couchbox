@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube
+GenericName=Video
+Comment=YouTube's TV interface, for a remote
+Exec=couchbox-youtube
+Icon=couchbox-youtube
+Categories=AudioVideo;Video;Player;
+StartupWMClass=couchbox-youtube

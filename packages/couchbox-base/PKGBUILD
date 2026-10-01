@@ -5,7 +5,7 @@
 # install into the appliance: autologin, service presets, and home-screen tiles.
 
 pkgname=couchbox-base
-pkgver=0.2.1
+pkgver=0.7.8
 pkgrel=1
 pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
 arch=(any)
@@ -15,22 +15,39 @@ depends=(
   plasma-bigscreen plasma-nm plasma-pa kscreen powerdevil xdg-desktop-portal-kde sddm
   # Hardware and networking
   networkmanager bluez bluez-utils libcec pipewire pipewire-pulse wireplumber
+  # Power-saver profile while the screen sleeps (couchbox-power-profile)
+  power-profiles-daemon
   zerotier-one
+  # The remote: long-press Home (and IR once a blaster is fitted)
+  fire-blaster
   # couchbox-bt-agent
   python-dbus python-gobject
-  # Clients (jellyfin-desktop and the Kodi add-ons come from the AUR, see aur.txt)
-  kodi kodi-addon-jellyfin kodi-addon-jellycon jellyfin-desktop
+  # Clients (the Kodi add-ons come from the AUR, see aur.txt)
+  kodi kodi-addon-jellyfin kodi-addon-jellycon kodi-addon-couchbox-shuffle
+  # Plezy with couchbox's patches (provides plezy; named so pacman picks it)
+  plezy-couchbox
+  # YouTube's TV interface (packages/couchbox-youtube)
+  couchbox-youtube
+  # Home-screen wallpapers for Bigscreen's default slideshow
+  couchbox-wallpapers
+  # The couchbox page in Bigscreen Settings (packages/couchbox-settings)
+  couchbox-settings
+  # kodi-addon-jellyfin imports typing_extensions but doesn't depend on it
+  python-typing_extensions
   noto-fonts
   # Debugging from the couch with a keyboard
   konsole
 )
-backup=(etc/sddm.conf.d/couchbox.conf etc/couchbox/visible-apps)
+backup=(etc/sddm.conf.d/couchbox.conf etc/couchbox/visible-apps etc/fire-blaster/config.toml)
 install=couchbox-base.install
-# Tile order on the home screen follows this list.
-_tiles=(couchbox-jellyfin-desktop.desktop couchbox-kodi.desktop)
+# Client tiles. Each must keep the app's own desktop file ID (the window's app
+# ID): Bigscreen raises a running app only when the tile's ID matches, and
+# otherwise launches it again. Bigscreen sorts the Applications row by name.
+_tiles=(com.edde746.plezy.desktop kodi.desktop)
 source=(
   sddm-couchbox.conf
   kscreenlockerrc
+  kwalletrc
   powerdevilrc
   plasmabigscreenrc
   80-couchbox.preset
@@ -39,17 +56,26 @@ source=(
   couchbox-app-blacklist.hook
   couchbox-bt-agent
   couchbox-bt-agent.service
+  couchbox-power-profile
+  couchbox-power-profile.service
   kwinrc
   couchbox-home.json
   couchbox-home.js
-  70-couchbox-remotes.hwdb
+  fire-blaster.toml
+  kglobalshortcutsrc
+  plezy-prefs.json
+  kactivitymanagerd-pluginsrc
+  60-couchbox-hdmi-passthrough.conf
+  kodi-guisettings.xml
+  couchbox-wallpaper-rotation.js
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
   install -Dm644 kscreenlockerrc "$pkgdir/etc/xdg/kscreenlockerrc"
+  install -Dm644 kwalletrc "$pkgdir/etc/xdg/kwalletrc"
   install -Dm644 powerdevilrc "$pkgdir/etc/xdg/powerdevilrc"
   install -Dm644 plasmabigscreenrc "$pkgdir/etc/xdg/plasmabigscreenrc"
   install -Dm644 80-couchbox.preset "$pkgdir/usr/lib/systemd/system-preset/80-couchbox.preset"
@@ -58,37 +84,31 @@ package() {
   install -Dm644 couchbox-app-blacklist.hook "$pkgdir/usr/share/libalpm/hooks/couchbox-app-blacklist.hook"
   install -Dm755 couchbox-bt-agent "$pkgdir/usr/bin/couchbox-bt-agent"
   install -Dm644 couchbox-bt-agent.service "$pkgdir/usr/lib/systemd/system/couchbox-bt-agent.service"
+  install -Dm755 couchbox-power-profile "$pkgdir/usr/bin/couchbox-power-profile"
+  install -Dm644 couchbox-power-profile.service "$pkgdir/usr/lib/systemd/system/couchbox-power-profile.service"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"
-  install -Dm644 70-couchbox-remotes.hwdb "$pkgdir/usr/lib/udev/hwdb.d/70-couchbox-remotes.hwdb"
+  install -Dm644 fire-blaster.toml "$pkgdir/etc/fire-blaster/config.toml"
+  install -Dm644 kglobalshortcutsrc "$pkgdir/etc/xdg/kglobalshortcutsrc"
+  install -Dm644 kactivitymanagerd-pluginsrc "$pkgdir/etc/xdg/kactivitymanagerd-pluginsrc"
+  install -Dm644 60-couchbox-hdmi-passthrough.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/60-couchbox-hdmi-passthrough.conf"
+  # Plezy: TV layout and fullscreen from the first start. No client_identifier:
+  # Plezy generates one per box on first run.
+  install -Dm644 plezy-prefs.json "$pkgdir/etc/skel/.local/share/com.edde746.plezy/shared_preferences.json"
+  install -Dm644 kodi-guisettings.xml "$pkgdir/etc/skel/.kodi/userdata/guisettings.xml"
+  install -Dm644 couchbox-wallpaper-rotation.js "$pkgdir/usr/share/plasma/shells/org.kde.plasma.bigscreen/contents/updates/couchbox-wallpaper-rotation.js"
 
   # KWin script: the remote's Home key shows the home screen.
   install -Dm644 couchbox-home.json "$pkgdir/usr/share/kwin/scripts/couchbox-home/metadata.json"
   install -Dm644 couchbox-home.js "$pkgdir/usr/share/kwin/scripts/couchbox-home/contents/code/main.js"
 
+  # The tiles override the apps' stock .desktop files per user (same file ID
+  # in ~/.local/share/applications wins over /usr/share/applications), so the
+  # Jellyfin tile can pass --fullscreen --tv.
+  #
+  # No Bigscreen favorites are shipped: the Favorites row only shows when it
+  # has entries, and the allowlisted apps already fill the Applications row.
   local tile
   for tile in "${_tiles[@]}"; do
-    install -Dm644 "$tile" "$pkgdir/usr/share/applications/$tile"
+    install -Dm644 "$tile" "$pkgdir/etc/skel/.local/share/applications/$tile"
   done
-
-  # Pre-pin the tiles as Bigscreen favorites for users created after install.
-  # Bigscreen matches a favorite on storageId *and* the Exec line (stored as
-  # entryPath), so generate the file from the .desktop files to keep them in sync.
-  local favs="$pkgdir/etc/skel/.config/bigscreen-favs" i=0 key
-  install -d "${favs%/*}"
-  for tile in "${_tiles[@]}"; do
-    printf '[Favs][%d]\n' "$i"
-    printf 'storageId=%s\n' "$tile"
-    printf 'desktopPath=/usr/share/applications/%s\n' "$tile"
-    for key in Exec Name Comment Icon Categories; do
-      local val
-      val=$(sed -n "s/^$key=//p" "$tile" | head -n1)
-      case $key in
-        Exec) key=entryPath ;;
-        Categories) val=${val%;}; val=${val//;/,} ;;
-      esac
-      printf '%s=%s\n' "${key,}" "$val"
-    done
-    printf 'startupNotify=false\n\n'
-    i=$((i + 1))
-  done > "$favs"
 }

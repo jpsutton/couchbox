@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="context.couchbox.shuffle" name="Shuffle Episodes" version="1.2.0" provider-name="couchbox">
+  <requires>
+    <import addon="xbmc.python" version="3.0.1"/>
+  </requires>
+  <extension point="kodi.context.item">
+    <menu id="kodi.core.main">
+      <item library="shuffle.py" args="one">
+        <label>Shuffle one</label>
+        <visible>String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,season)</visible>
+      </item>
+      <item library="shuffle.py" args="all">
+        <label>Shuffle all</label>
+        <visible>String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,season)</visible>
+      </item>
+    </menu>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Play a show's or season's episodes in random order</summary>
+    <description lang="en_GB">Adds two entries to the context menu of TV shows and seasons in the video library. Shuffle one plays a single random episode. Shuffle all queues every episode in random order and starts playing, like Shuffle in the Jellyfin apps, keeping multi-part stories together and in order. A show's specials are left out.</description>
+    <platform>all</platform>
+    <license>MIT</license>
+  </extension>
+</addon>

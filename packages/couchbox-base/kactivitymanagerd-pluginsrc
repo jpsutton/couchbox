@@ -1,0 +1,6 @@
+# Keep no app-usage history. Bigscreen's home screen shows a "Recent" row
+# whenever this history has entries (6.7.5 has no setting for the row), and on
+# a TV box the fixed Applications row is all that's wanted.
+# what-to-remember: 0 = all apps, 1 = specific apps, 2 = none.
+[Plugin-org.kde.ActivityManager.Resources.Scoring]
+what-to-remember=2

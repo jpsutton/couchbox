@@ -1,0 +1,11 @@
+{
+    "KPlugin": {
+        "Description": "couchbox options",
+        "FormFactors": [
+            "mediacenter"
+        ],
+        "Icon": "preferences-other",
+        "Name": "couchbox"
+    },
+    "X-KDE-Weight": 90
+}

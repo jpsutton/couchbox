@@ -1,0 +1,28 @@
+#!/bin/sh
+# NetworkManager dispatcher: Wi-Fi is the backup link. While a wired
+# connection is up, disconnect Wi-Fi; when the last wired connection goes
+# down, reconnect it.
+#
+# "Disconnect" rather than turning the radio off: NetworkManager remembers the
+# radio state across reboots, so a box booted without a cable would come up
+# with no network. A disconnected device is only blocked until the next boot
+# or until this script reconnects it.
+interface=$1 action=$2
+
+wired_up() {
+    nmcli -t -f TYPE,STATE device status | grep -q '^ethernet:connected$'
+}
+
+case "$action" in
+    up|down) ;;
+    *) exit 0 ;;
+esac
+[ "$(nmcli -t -g GENERAL.TYPE device show "$interface" 2>/dev/null)" = ethernet ] || exit 0
+
+for wifi in $(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2 == "wifi" {print $1}'); do
+    if wired_up; then
+        nmcli device disconnect "$wifi" >/dev/null 2>&1 && logger -t couchbox-wifi-backup "wired up: $wifi disconnected"
+    else
+        nmcli device connect "$wifi" >/dev/null 2>&1 && logger -t couchbox-wifi-backup "wired down: $wifi reconnected"
+    fi
+done

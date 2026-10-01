@@ -1,0 +1,92 @@
+From d593a3036ec3fe484baa2108a692d483f4f49cca Mon Sep 17 00:00:00 2001
+From: couchbox <noreply@example.invalid>
+Date: Tue, 29 Sep 2026 11:46:51 -0400
+Subject: [PATCH] fix(input): treat the Linux Play/Pause key as a toggle
+
+On Linux, XKB maps the Play/Pause key (evdev KEY_PLAYPAUSE) to the
+XF86AudioPlay keysym, so Flutter reports LogicalKeyboardKey.mediaPlay and
+the player treats it as a directed play: while playing, the key only
+flashes the play disc. The physical key is still mediaPlayPause, so use it
+to recover the toggle.
+---
+ lib/focus/transport_keys.dart                    | 8 +++++++-
+ lib/screens/video_player_screen.dart             | 2 +-
+ lib/services/music/music_hardware_transport.dart | 6 +++---
+ lib/widgets/video_controls/parts/key_events.dart | 2 +-
+ 4 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/lib/focus/transport_keys.dart b/lib/focus/transport_keys.dart
+index ee5442dca..5d453ad05 100644
+--- a/lib/focus/transport_keys.dart
++++ b/lib/focus/transport_keys.dart
+@@ -8,10 +8,16 @@ enum TransportCommand { play, pause, toggle }
+ /// that are not transport keys (including the configured play/pause hotkey,
+ /// which callers resolve to [TransportCommand.toggle] themselves).
+ ///
++/// Pass [physical] when it is known: on Linux, XKB maps the Play/Pause key
++/// (evdev `KEY_PLAYPAUSE`) to the `XF86AudioPlay` keysym, so the logical key
++/// is [LogicalKeyboardKey.mediaPlay] even though the button is a toggle. The
++/// physical key still says [PhysicalKeyboardKey.mediaPlayPause].
++///
+ /// Shared by the video player screen (foreground remote transport, #1375) and
+ /// the music hardware-transport handler (#1948); it deliberately lives outside
+ /// `lib/widgets/` so the music service layer does not import widget code.
+-TransportCommand? classifyTransportKey(LogicalKeyboardKey key) {
++TransportCommand? classifyTransportKey(LogicalKeyboardKey key, [PhysicalKeyboardKey? physical]) {
++  if (physical == PhysicalKeyboardKey.mediaPlayPause) return TransportCommand.toggle;
+   if (key == LogicalKeyboardKey.mediaPlay) return TransportCommand.play;
+   if (key == LogicalKeyboardKey.mediaPause) return TransportCommand.pause;
+   if (key == LogicalKeyboardKey.mediaPlayPause) return TransportCommand.toggle;
+diff --git a/lib/screens/video_player_screen.dart b/lib/screens/video_player_screen.dart
+index 3526eccee..b92e4d5e9 100644
+--- a/lib/screens/video_player_screen.dart
++++ b/lib/screens/video_player_screen.dart
+@@ -2899,7 +2899,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
+         // dispatch), and Apple TV delivers play/pause via its native bridge.
+         // The chrome deliberately stays down; _remoteTransport announces the
+         // accepted command with a centred transient disc instead (#1676).
+-        final transportCommand = classifyTransportKey(event.logicalKey);
++        final transportCommand = classifyTransportKey(event.logicalKey, event.physicalKey);
+         if (videoPlayerNavigationPreference() && !PlatformDetector.isAppleTV() && transportCommand != null) {
+           if (event is KeyDownEvent) {
+             unawaited(_remoteTransport(transportCommand, source: 'Hardware media key'));
+diff --git a/lib/services/music/music_hardware_transport.dart b/lib/services/music/music_hardware_transport.dart
+index bad6b14c7..9e881415a 100644
+--- a/lib/services/music/music_hardware_transport.dart
++++ b/lib/services/music/music_hardware_transport.dart
+@@ -68,7 +68,7 @@ class MusicHardwareTransportHandler {
+ 
+   bool _handleKeyEvent(KeyEvent event) {
+     if (!_hasActiveSession()) return false;
+-    final action = _actionFor(event.logicalKey);
++    final action = _actionFor(event.logicalKey, event.physicalKey);
+     if (action == null) return false;
+     // Act on the initial press only; consume the whole down/repeat/up burst so
+     // none of it reaches the platform's fallback media-button dispatch.
+@@ -79,8 +79,8 @@ class MusicHardwareTransportHandler {
+   /// The session action a transport key maps to, or null for keys this
+   /// handler does not own. Mirrors what `MediaControlRouter` accepts from the
+   /// MediaSession so foreground and background presses behave identically.
+-  VoidCallback? _actionFor(LogicalKeyboardKey key) {
+-    final transport = classifyTransportKey(key);
++  VoidCallback? _actionFor(LogicalKeyboardKey key, PhysicalKeyboardKey physical) {
++    final transport = classifyTransportKey(key, physical);
+     if (transport != null) {
+       return switch (transport) {
+         TransportCommand.play => _onPlay,
+diff --git a/lib/widgets/video_controls/parts/key_events.dart b/lib/widgets/video_controls/parts/key_events.dart
+index 6fe2628af..90d6f249e 100644
+--- a/lib/widgets/video_controls/parts/key_events.dart
++++ b/lib/widgets/video_controls/parts/key_events.dart
+@@ -14,7 +14,7 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
+   /// configured hotkey is always a toggle.
+   TransportCommand? _transportCommandFor(KeyEvent event) {
+     // Always accept hardware media transport keys (Android TV remotes)
+-    final hardware = classifyTransportKey(event.logicalKey);
++    final hardware = classifyTransportKey(event.logicalKey, event.physicalKey);
+     if (hardware != null) return hardware;
+ 
+     final physicalKey = event.physicalKey;
+-- 
+2.55.0
+

@@ -1,0 +1,8 @@
+# No wallet on an autologin TV box: there is no login password to unlock it
+# with, and its first-use wizard pops up full screen over apps (CEF and
+# Chromium ask for it). With KWallet off, CEF falls back to its basic store,
+# and plasma-nm hands Wi-Fi secrets to NetworkManager, which keeps them in
+# the root-only /etc/NetworkManager/system-connections.
+[Wallet]
+Enabled=false
+First Use=false

@@ -1,0 +1,4 @@
+#!/bin/sh
+# --class sets the Wayland app ID, which must match the .desktop file name for
+# Bigscreen to raise the running window from its tile.
+exec electron --class=couchbox-youtube /usr/lib/couchbox-youtube "$@"

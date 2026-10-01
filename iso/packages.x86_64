@@ -1,1 +1,20 @@
-pacman-contrib
+# Live environment for couchbox-install. This replaces releng's rescue-system
+# package list; the target system comes from the offline repo instead.
+base
+linux
+# Enough GPU firmware for a working console on Intel and AMD boxes.
+linux-firmware-intel
+linux-firmware-amdgpu
+linux-firmware-radeon
+mkinitcpio
+mkinitcpio-archiso
+# couchbox-install (libnewt: whiptail for the disk picker)
+arch-install-scripts
+libnewt
+dosfstools
+e2fsprogs
+parted
+# Debugging from the console, and remotely when a network happens to be there.
+less
+nano
+openssh

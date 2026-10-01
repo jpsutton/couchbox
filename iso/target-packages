@@ -1,0 +1,11 @@
+# Packages couchbox-install puts on the target, by CPU vendor.
+# build-iso.sh downloads every set, with all dependencies, into the ISO's
+# offline repo, so any box installs without a network connection.
+#
+# Format: <set>: <package>...   (sets: all, intel, amd)
+all: base linux linux-firmware sudo couchbox-base
+# iHD covers Broadwell and newer, i965 older chips such as Bay Trail; libva
+# tries iHD first. Vulkan: Jellium's shell overlay exits without it.
+intel: intel-ucode intel-media-driver libva-intel-driver vulkan-intel
+# mesa provides VA-API for AMD.
+amd: amd-ucode vulkan-radeon

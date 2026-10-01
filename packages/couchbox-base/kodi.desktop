@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Kodi
-Comment=Kodi with the Jellyfin add-ons
-Exec=kodi
+Comment=Kodi with the Jellyfin add-ons (couchbox tile)
+Exec=kodi --audio-backend=pulseaudio
 Icon=kodi
 Terminal=false
 Categories=AudioVideo;Video;Player;TV;

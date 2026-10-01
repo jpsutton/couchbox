@@ -1,0 +1,21 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# YouTube's TV interface (youtube.com/tv) for the couch: a fullscreen window on
+# the system electron, with remote-key handling. Kept in this repo; no upstream.
+
+pkgname=couchbox-youtube
+pkgver=1.2.0
+pkgrel=1
+pkgdesc="YouTube's TV interface in a fullscreen Electron window, for a remote"
+arch=(any)
+license=(MIT)
+depends=(electron libva-utils)
+source=(main.js preload.js package.json couchbox-youtube couchbox-youtube.desktop couchbox-youtube.svg)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP)
+
+package() {
+  install -Dm644 main.js preload.js package.json -t "$pkgdir/usr/lib/couchbox-youtube/"
+  install -Dm755 couchbox-youtube "$pkgdir/usr/bin/couchbox-youtube"
+  install -Dm644 couchbox-youtube.desktop "$pkgdir/usr/share/applications/couchbox-youtube.desktop"
+  install -Dm644 couchbox-youtube.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/couchbox-youtube.svg"
+}

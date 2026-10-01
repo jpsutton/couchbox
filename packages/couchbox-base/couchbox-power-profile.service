@@ -1,0 +1,11 @@
+[Unit]
+Description=couchbox: power-saver profile while the screen sleeps
+After=power-profiles-daemon.service
+Wants=power-profiles-daemon.service
+
+[Service]
+ExecStart=/usr/bin/couchbox-power-profile
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

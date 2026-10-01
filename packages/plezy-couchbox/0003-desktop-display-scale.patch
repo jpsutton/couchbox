@@ -1,0 +1,121 @@
+From d6b4e459a65d7a76d0691754cde0e35f10a32b83 Mon Sep 17 00:00:00 2001
+From: couchbox <noreply@example.invalid>
+Date: Tue, 29 Sep 2026 12:42:30 -0400
+Subject: [PATCH] feat(settings): Display Scale on desktop
+
+The Display Scale setting (automotive_ui_scale) scales the whole UI through
+FormFactorScale, but only on Android Automotive. A desktop driving a TV from
+across the room (e.g. Linux with Plasma Bigscreen, TV mode forced on) has
+the same problem: at 1920x1080 and a device pixel ratio of 1, text and
+controls are about half the size a TV platform would give them.
+
+Show the setting on desktop too and apply it there. The desktop default
+stays 1.0 (the pref's existing non-automotive default), so nothing changes
+until a user moves the slider.
+
+The desktop video plane needs one fix to go with it: the scaled surface also
+scales MediaQuery's devicePixelRatio, and the Linux plugin rounds the ratio
+it is sent into an integer Wayland buffer scale, so at 1.75 the plane was
+drawn at half size. The video rect is now taken through the ancestor
+transform in view coordinates and sent with the view's own ratio, which is
+the same result as before when no transform is involved.
+---
+ lib/main.dart                                 | 14 ++++++++++++-
+ lib/mpv/video.dart                            | 21 ++++++++++++-------
+ .../settings/appearance_settings_screen.dart  |  2 +-
+ lib/services/settings_service.dart            |  2 +-
+ 4 files changed, 29 insertions(+), 10 deletions(-)
+
+diff --git a/lib/main.dart b/lib/main.dart
+index 24ad2a31a..3e3d68275 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -1916,7 +1916,19 @@ class FormFactorScale extends StatelessWidget {
+     if (PlatformDetector.isAppleTV()) {
+       return _scaledSurface(child: child, scale: _appleTvScale, zeroInsets: true);
+     }
+-    if (!PlatformDetector.isAutomotive()) return child;
++    if (!PlatformDetector.isAutomotive()) {
++      // Desktop: honour the user's Display Scale (default 1.0, so nothing
++      // changes until it is set). A desktop driving a TV from across the room
++      // needs the larger UI that a TV platform would report on its own.
++      if (PlatformDetector.isDesktopOS()) {
++        return SettingValueBuilder<double>(
++          pref: SettingsService.automotiveUiScale,
++          builder: (context, scale, _) =>
++              scale == 1.0 ? child : _scaledSurface(child: child, scale: scale, zeroInsets: false),
++        );
++      }
++      return child;
++    }
+ 
+     // Car system bars can sit on the left or right, are opaque, and may be
+     // impossible to hide (OEM policy). Nothing is worth drawing under them,
+diff --git a/lib/mpv/video.dart b/lib/mpv/video.dart
+index 05a66f63c..f54e1fe6e 100644
+--- a/lib/mpv/video.dart
++++ b/lib/mpv/video.dart
+@@ -148,9 +148,16 @@ class _VideoState extends State<Video> {
+     final renderBox = context.findRenderObject() as RenderBox?;
+     if (renderBox == null || !renderBox.hasSize) return;
+ 
+-    final position = renderBox.localToGlobal(Offset.zero);
+-    final size = renderBox.size;
+-    final dpr = MediaQuery.devicePixelRatioOf(context);
++    // The rect in the view's logical pixels, through any ancestor transform
++    // (FormFactorScale's Display Scale), times the view's own pixel ratio.
++    // Inside a scaled surface MediaQuery's devicePixelRatio is scaled too, but
++    // the native side turns the ratio into an integer buffer scale, so a
++    // Display Scale of 1.75 would otherwise draw the plane at half size.
++    final rect = MatrixUtils.transformRect(renderBox.getTransformTo(null), Offset.zero & renderBox.size);
++    final dpr = View.of(context).devicePixelRatio;
++    // Still depend on MediaQuery's ratio, as before, so a move to an output
++    // with another scale re-sends the rect.
++    MediaQuery.devicePixelRatioOf(context);
+ 
+     // Rounded outward, the same way the native SetRect biases: it floors the
+     // position and rounds the buffer size up so the plane always covers at
+@@ -160,10 +167,10 @@ class _VideoState extends State<Video> {
+     // seam, where the point of the plane is that the seam is black. Ceil and
+     // floor are identity on an already-integral value, so an integral layout
+     // sends exactly the numbers it sent before.
+-    final left = (position.dx * dpr).floor();
+-    final top = (position.dy * dpr).floor();
+-    final right = ((position.dx + size.width) * dpr).ceil();
+-    final bottom = ((position.dy + size.height) * dpr).ceil();
++    final left = (rect.left * dpr).floor();
++    final top = (rect.top * dpr).floor();
++    final right = (rect.right * dpr).ceil();
++    final bottom = (rect.bottom * dpr).ceil();
+ 
+     // Keyed on the four integers actually sent rather than on a logical-pixel
+     // tolerance. A sub-logical-pixel move is a real move at scale 2 or 3 -
+diff --git a/lib/screens/settings/appearance_settings_screen.dart b/lib/screens/settings/appearance_settings_screen.dart
+index ef456d81c..9eadfe76e 100644
+--- a/lib/screens/settings/appearance_settings_screen.dart
++++ b/lib/screens/settings/appearance_settings_screen.dart
+@@ -34,7 +34,7 @@ class AppearanceSettingsScreen extends StatelessWidget {
+           title: t.settings.display,
+           children: [
+             _themeSelector(),
+-            if (PlatformDetector.isAutomotive()) _displayScaleSelector(),
++            if (PlatformDetector.isAutomotive() || PlatformDetector.isDesktopOS()) _displayScaleSelector(),
+             if (Platform.isAndroid) _visualEffectsSelector(context),
+           ],
+         ),
+diff --git a/lib/services/settings_service.dart b/lib/services/settings_service.dart
+index f9a6002f3..0c0267b6f 100644
+--- a/lib/services/settings_service.dart
++++ b/lib/services/settings_service.dart
+@@ -219,7 +219,7 @@ class AutomotiveUiScale {
+ }
+ 
+ /// Uses a larger default on car displays while honoring and clamping a stored
+-/// user adjustment on every platform.
++/// user adjustment on every platform. Applied on car displays and desktops.
+ class _AutomotiveUiScalePref extends Pref<double> {
+   const _AutomotiveUiScalePref() : super('automotive_ui_scale');
+   @override
+-- 
+2.55.0
+

@@ -1,0 +1,22 @@
+diff --git a/src/linux_util/src/keysym.rs b/src/linux_util/src/keysym.rs
+index bc0a2d1..5e8d9e2 100644
+--- a/src/linux_util/src/keysym.rs
++++ b/src/linux_util/src/keysym.rs
+@@ -58,6 +58,17 @@ pub fn keysym_to_vkey(sym: u32) -> i32 {
+         ks::KEY_backslash | ks::KEY_bar => 0xDC,
+         ks::KEY_bracketright | ks::KEY_braceright => 0xDD,
+         ks::KEY_apostrophe | ks::KEY_quotedbl => 0xDE,
++        // Browser and media keys, as TV remotes send them. Chromium turns
++        // these VKs into the DOM keys jellyfin-web binds (BrowserHome,
++        // BrowserSearch, MediaPlayPause, ...); VK 0 reaches the page as an
++        // unidentified key and is ignored.
++        ks::KEY_XF86HomePage => 0xAC,    // VK_BROWSER_HOME
++        ks::KEY_XF86Search => 0xAA,      // VK_BROWSER_SEARCH
++        ks::KEY_XF86AudioNext => 0xB0,   // VK_MEDIA_NEXT_TRACK
++        ks::KEY_XF86AudioPrev => 0xB1,   // VK_MEDIA_PREV_TRACK
++        ks::KEY_XF86AudioStop => 0xB2,   // VK_MEDIA_STOP
++        ks::KEY_XF86AudioPlay => 0xB3,   // VK_MEDIA_PLAY_PAUSE
++        ks::KEY_XF86AudioPause => 0x13,  // VK_PAUSE
+         _ => 0,
+     }
+ }

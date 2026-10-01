@@ -21,15 +21,17 @@ yet.
 |---|---|
 | Plasma Bigscreen session (6.7+) | `extra` |
 | SDDM autologin into Bigscreen, no lock screen | `couchbox-base` |
-| Jellyfin Desktop, TV mode (`jellyfin-desktop --fullscreen --tv`) | AUR |
 | Kodi with `jellyfin-kodi` and `JellyCon` | `extra` and AUR |
+| Plezy (native Flutter Plex/Jellyfin client; TV mode and fullscreen preset), patched for the remote and TV | `plezy-couchbox` |
+| YouTube, TV interface (`youtube.com/tv` with a TV user agent; account picker, Link with TV code) | `couchbox-youtube` |
 | ZeroTier (`zerotier-one`, enabled at boot) | `extra` |
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
 | VA-API driver and microcode, picked by CPU vendor | installer |
 | HDMI off after 10 idle minutes, never system suspend | `couchbox-base` (PowerDevil) |
 | Home screen shows only the tiles, Konsole and Settings | `couchbox-base` (`/etc/couchbox/visible-apps`) |
 | Bluetooth pairing agent that accepts and trusts remotes | `couchbox-base` (`couchbox-bt-agent`) |
-| Home key goes to the home screen; OK (keypad Enter) selects | `couchbox-base` (KWin script, udev hwdb) |
+| Short Home/Menu go to the app; long Home shows the Bigscreen launcher, long Menu the home overlay (Tasks page: hold OK to close an app); OK and Menu remapped for apps | `fire-blaster` (`[hold]`, `[remap]`), `couchbox-base` (KWin script, shortcut defaults) |
+| fire-blaster (remote grab, long-press keys; IR once a blaster is fitted) | `packages/fire-blaster`, built from `../fire-blaster` |
 
 ## Idle display-off
 
@@ -49,8 +51,8 @@ Two settings make this work, both installed to `/etc/xdg`:
   `AutoSuspendAction=0`. To change the timeout, edit
   `TurnOffDisplayIdleTimeoutSec`.
 
-Playback keeps the screen on. Jellyfin Desktop holds an inhibit through
-`org.freedesktop.ScreenSaver`, and Kodi holds one through Wayland
+Playback keeps the screen on. Plezy holds an inhibit through the desktop
+portal (`org.freedesktop.portal.Inhibit`), and Kodi holds one through Wayland
 idle-inhibit.
 
 ## Layout
@@ -58,9 +60,18 @@ idle-inhibit.
 ```
 aur.txt                   AUR packages to build, in order, with their local deps
 packages/couchbox-base/   meta package and appliance config
+packages/kodi-addon-couchbox-shuffle/  Kodi context menu on shows and seasons: Shuffle one, Shuffle all
+packages/plezy-couchbox/  Plezy with couchbox's patches (Home key, Play/Pause, Display Scale); provides plezy
+packages/couchbox-youtube/  YouTube's TV interface (youtube.com/tv) in a fullscreen window on the system electron
+packages/couchbox-wallpapers/  14 TV-friendly KDE wallpapers; Bigscreen's default slideshow rotates through them
+packages/couchbox-settings/  "couchbox" page in Bigscreen Settings (KCM); options in ~/.config/couchboxrc
 scripts/build-repo.sh     builds the AUR and local packages in a clean chroot into out/repo
-scripts/build-iso.sh      copies archiso's releng profile, overlays iso/, embeds out/repo
+                          (packs ../fire-blaster, or $FIRE_BLASTER_SRC, as fire-blaster's source)
+scripts/build-iso.sh      releng profile with a minimal live system, plus an offline repo of everything the target needs
+iso/target-packages       what the installer puts on a target, by CPU vendor
 iso/airootfs/             files added to the live ISO, including couchbox-install
+disabled-packages/        kept but not built: jellium-desktop (patched Jellium, off since 2026-09-29),
+                          jellyfin-desktop (its tile, TV-mode launcher and remote input map, removed 2026-10-01)
 ```
 
 ## Build
@@ -75,24 +86,41 @@ make iso     # out/couchbox-*.iso
 
 ## Install
 
-1. Boot the ISO in UEFI mode.
-2. Connect to the network. The mirrors supply everything except the AUR builds.
-3. Run `couchbox-install /dev/nvme0n1`.
+1. Boot the ISO in UEFI mode. BIOS boot is not supported.
+2. The installer starts by itself on the console. Pick the disk from the
+   menu, confirm, and set a password for `htpc` (or leave it empty).
 
-The installer **erases the whole disk**. It asks you to type the disk name
-before it starts. It creates a GPT with a 1 GiB ESP and an ext4 root, installs
-systemd-boot, and creates the `htpc` user. SDDM logs that user in
-automatically. The `htpc` password is only for sudo and SSH. Use `--yes` to
-skip the prompts, which leaves the `htpc` password locked.
+For unattended installs, run `couchbox-install --yes /dev/<disk>` instead.
+
+No network is needed. The ISO carries an offline repo with every package the
+installer uses, for both Intel and AMD boxes; the list lives in
+`iso/target-packages`. The installed system is set up for online updates:
+Arch's geo mirror plus the couchbox repo copied to `/var/lib/couchbox/repo`.
+
+The installer **erases the whole disk**. It never offers the USB stick it
+booted from, and the erase prompt defaults to No. It creates a GPT with a 1
+GiB ESP and an ext4 root, installs systemd-boot, and creates the `htpc` user.
+SDDM logs that user in automatically. The `htpc` password is only for sudo and
+SSH; root stays locked. Use `--yes` to skip the prompts, which leaves the
+`htpc` password locked.
 
 ## How the tiles work
 
-Bigscreen keeps its home-screen favorites in `~/.config/bigscreen-favs`. It
-matches each favorite on the `.desktop` file ID *and* the exact `Exec` line.
-`couchbox-base` generates that file from its own tile `.desktop` files and
-installs it to `/etc/skel`. New users start with the tiles pinned. To add a
-client, add a `couchbox-*.desktop` file and list it in `_tiles` in the
-PKGBUILD.
+The home screen shows one row, Applications, which Bigscreen sorts by name. It
+lists only the apps in `/etc/couchbox/visible-apps`: the Jellyfin, Kodi and
+Plezy clients, Konsole and Bigscreen Settings. couchbox ships no Bigscreen
+favorites, so the Favorites row, which appears only when it has entries, stays
+hidden. The Recent row appears only when app-usage history exists, so
+`/etc/xdg/kactivitymanagerd-pluginsrc` turns that history off
+(`what-to-remember=2`).
+
+Each client's tile overrides the app's own `.desktop` file under the same file
+ID, in `~/.local/share/applications` (copied from `/etc/skel`). The ID has to
+match the window's app ID: Bigscreen raises a running app only when they
+match, and otherwise launches it again. The override is also where a tile
+can swap in its own launcher or arguments (Kodi's audio backend). To add a client, add
+a `<app id>.desktop` file, list it in `_tiles` in the PKGBUILD, and add the
+ID to `visible-apps`.
 
 ## Upstream bugs
 
@@ -118,7 +146,11 @@ mostly Plasma Bigscreen, along with the couchbox workaround for each.
   Jellyfin playback releases it. Optionally, send CEC standby to the TV on
   idle, for TVs that ignore "no signal". That needs a CEC adapter and has to
   share it with the Bigscreen input handler.
-- **fire-blaster.** Package `../fire-blaster` and add it to `packages/`.
+- **fire-blaster IR.** fire-blaster is packaged and handles the long Home
+  press, but its IR output is a stub, so couchbox leaves `[keys]` empty and
+  volume/mute/power go to Plasma. Once a USB IR blaster is fitted, fill
+  `[keys]` in `/etc/fire-blaster/config.toml` and add `pyside6` for the
+  on-screen setup overlay.
 - **Hotel captive portals.** Test the NetworkManager captive-portal flow
   inside Bigscreen, which has no normal browser window.
 - **Updates.** Host `out/repo` somewhere so installed boxes get AUR rebuilds

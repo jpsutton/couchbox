@@ -3,4 +3,3 @@
 python-kodi_six
 kodi-addon-jellyfin python-kodi_six
 kodi-addon-jellycon python-kodi_six
-jellyfin-desktop

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Jellyfin
-Comment=Jellyfin Desktop in TV mode
-Exec=jellyfin-desktop --fullscreen --tv
+Comment=Jellyfin Desktop in TV mode (couchbox tile)
+Exec=couchbox-jellyfin
 Icon=org.jellyfin.JellyfinDesktop
 Terminal=false
 StartupWMClass=org.jellyfin.JellyfinDesktop

@@ -1,0 +1,10 @@
+{
+  "name": "couchbox remote keys",
+  "idmatcher": "Keyboard.*",
+  "mapping": {
+    "Menu": {
+      "short": "cycle_subtitles",
+      "long": "cycle_audio"
+    }
+  }
+}

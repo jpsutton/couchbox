@@ -1,0 +1,38 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# A TV-friendly pick from KDE's wallpaper collection (photographs and calm
+# landscapes, dark enough for the white tile labels). Installed where
+# Bigscreen's default slideshow already looks (/usr/share/wallpapers, every
+# 8 minutes), so the home screen rotates through them with no configuration.
+# Each wallpaper keeps its metadata.json, which names its author and license
+# (LGPL-3.0 or CC-BY-SA-4.0).
+
+pkgname=couchbox-wallpapers
+_plasmaver=6.7.5
+pkgver=$_plasmaver
+pkgrel=1
+pkgdesc="TV-friendly wallpapers from KDE's collection for the couchbox home screen"
+arch=(any)
+url="https://invent.kde.org/plasma/plasma-workspace-wallpapers"
+license=(LGPL-3.0-only CC-BY-SA-4.0)
+# Same paths as these wallpapers in Arch's full package.
+conflicts=(plasma-workspace-wallpapers)
+source=("https://download.kde.org/stable/plasma/$_plasmaver/plasma-workspace-wallpapers-$_plasmaver.tar.xz")
+sha256sums=('c481ac4b937a2b1b080c3273e0557cd0c9d57b644156b941902483fd8e1646b5')
+
+_wallpapers=(
+  # photographs
+  BytheWater ColdRipple DarkestHour EveningGlow FallenLeaf Grey Kite Mountain
+  OneStandsOut Path summer_1am
+  # landscape art
+  Altai MilkyWay Volna
+)
+
+package() {
+  cd "plasma-workspace-wallpapers-$_plasmaver"
+  local name
+  for name in "${_wallpapers[@]}"; do
+    find "$name" -type f -exec install -Dm644 {} "$pkgdir/usr/share/wallpapers/{}" \;
+  done
+  install -Dm644 COPYING.LGPL3 "$pkgdir/usr/share/licenses/$pkgname/COPYING.LGPL3"
+}

@@ -5,3 +5,14 @@ packages/*/pkg/
 *.pkg.tar.zst
 build.log
 __pycache__/
+packages/fire-blaster/fire-blaster-src.tar.gz
+packages/fire-blaster/srcstamp
+# git sources makepkg clones next to a PKGBUILD
+packages/plezy-couchbox/plezy/
+packages/*/*.log
+# downloaded sources
+packages/*/*.tar.xz
+disabled-packages/*/src/
+disabled-packages/*/pkg/
+disabled-packages/*/*.log
+disabled-packages/jellium-desktop/jellium-desktop/

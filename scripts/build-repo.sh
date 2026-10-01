@@ -53,9 +53,9 @@ build_chroot() {
   )
 }
 
-# build_local <dir>: our own packages hold only config files, but they
-# depend on the AUR builds, which the chroot can't resolve. Build them
-# without dependency checks; they have nothing to compile.
+# build_local <dir>: config-only packages such as couchbox-base depend on the
+# AUR builds, which the chroot can't resolve. Build them without dependency
+# checks; they have nothing to compile.
 build_local() {
   (
     cd "$1"
@@ -77,8 +77,27 @@ while read -r name deps; do
   build_chroot "$work/aur/$name" $deps
 done < "$root/aur.txt"
 
+# fire-blaster has no releases to download: pack its working tree as the
+# package source, versioned by its newest file so pacman sees each change.
+fb_src=${FIRE_BLASTER_SRC:-$root/../fire-blaster}
+fb_pkg=$root/packages/fire-blaster
+if [[ -d $fb_pkg ]]; then
+  [[ -d $fb_src/src/fireblaster ]] || { echo "fire-blaster source not found at $fb_src (set FIRE_BLASTER_SRC)" >&2; exit 1; }
+  find "$fb_src"/{src,profiles,systemd,udev,desktop} "$fb_src"/{pyproject.toml,config.example.toml} \
+    -type f -not -path '*/__pycache__/*' -printf '%T@\n' | sort -n | tail -1 | cut -d. -f1 > "$fb_pkg/srcstamp"
+  tar -C "$(dirname "$fb_src")" -czf "$fb_pkg/fire-blaster-src.tar.gz" \
+    --exclude=.venv --exclude=.cache --exclude=.pytest_cache --exclude=__pycache__ --exclude='*.egg-info' \
+    --transform "s|^$(basename "$fb_src")|fire-blaster|" "$(basename "$fb_src")"
+fi
+
+# Packages that compile something (have a build() function) need the clean
+# chroot; config-only packages are built locally.
 for dir in "$root"/packages/*/; do
-  build_local "$dir"
+  if grep -q '^build()' "$dir/PKGBUILD"; then
+    build_chroot "$dir"
+  else
+    build_local "$dir"
+  fi
 done
 
 # Drop superseded versions and rebuild the database from what is left.

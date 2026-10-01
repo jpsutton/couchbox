@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Start Jellyfin Desktop in TV mode.
+
+Jellyfin Desktop 2.0 first loads its bundled server chooser (a qrc: page) and
+then navigates to the server's web client. With Qt WebEngine 6.11 its
+native-shell script is not injected after that navigation, so jellyfin-web
+never learns it runs in TV mode: it uses the desktop layout, and the arrow
+keys scroll instead of moving between items. A reload, or loading the server
+page first, injects it correctly.
+
+So when the saved server answers, start on its web client directly
+(path.startupurl_desktop). The network may still be coming up (Wi-Fi
+associating, ZeroTier joining), so keep asking for a while; only then fall
+back to the bundled chooser, so there is no dead error page.
+
+It also installs couchbox's extra input map (the remote's Menu key) into the
+profile. Jellyfin Desktop reads maps only from the profile's own directory,
+whose name is a random id, so a package cannot put it there.
+"""
+import json
+import os
+import pathlib
+import shutil
+import time
+import urllib.request
+
+BUNDLED = "bundled"
+# How long to wait for the server before starting on the chooser.
+SERVER_WAIT = 20
+INPUTMAP = pathlib.Path("/usr/share/couchbox/jellyfin-remote.json")
+
+
+def profile_dir():
+    data = pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local/share")
+    base = data / "jellyfin-desktop"
+    profile = json.loads((base / "profiles.json").read_text())["defaultProfile"]
+    return base / "profiles" / profile
+
+
+def install_inputmap():
+    dest = profile_dir() / "inputmaps" / "couchbox-remote.json"
+    if not dest.exists() or dest.read_bytes() != INPUTMAP.read_bytes():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(INPUTMAP, dest)
+
+
+def config_path():
+    return profile_dir() / "jellyfin-desktop.conf"
+
+
+def reachable(server):
+    deadline = time.monotonic() + SERVER_WAIT
+    while True:
+        try:
+            with urllib.request.urlopen(server + "/System/Info/Public", timeout=3) as r:
+                return r.status == 200
+        except OSError:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(1)
+
+
+def set_start_url():
+    conf = config_path()
+    config = json.loads(conf.read_text())
+    server = (config["sections"].get("main", {}).get("userWebClient") or "").rstrip("/")
+    path = config["sections"].setdefault("path", {})
+    wanted = server + "/web/" if server and reachable(server) else BUNDLED
+    if path.get("startupurl_desktop") != wanted:
+        path["startupurl_desktop"] = wanted
+        tmp = conf.with_name(conf.name + ".tmp")
+        tmp.write_text(json.dumps(config, indent=4))
+        os.replace(tmp, conf)
+
+
+# First run: no profile or server yet. The chooser is right anyway, and the
+# input map lands on the next start.
+for step in (set_start_url, install_inputmap):
+    try:
+        step()
+    except (OSError, KeyError, ValueError):
+        pass
+
+os.execvp("jellyfin-desktop", ["jellyfin-desktop", "--fullscreen", "--tv"])
