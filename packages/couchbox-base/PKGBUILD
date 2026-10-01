@@ -5,7 +5,7 @@
 # install into the appliance: autologin, service presets, and home-screen tiles.
 
 pkgname=couchbox-base
-pkgver=0.8.1
+pkgver=0.8.2
 pkgrel=1
 pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
 arch=(any)

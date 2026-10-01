@@ -8,4 +8,7 @@ ExecStart=/usr/bin/couchbox-power-profile
 Restart=on-failure
 
 [Install]
-WantedBy=multi-user.target
+# graphical.target, like power-profiles-daemon: that one is ordered after
+# multi-user.target, so a multi-user.target unit ordered after it is a cycle,
+# and systemd drops this unit's start job to break it.
+WantedBy=graphical.target
