@@ -19,6 +19,7 @@ offline=$work/offline
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
 [[ -e $repo/couchbox.db ]] || { echo "no repo at $repo; run scripts/build-repo.sh first" >&2; exit 1; }
 
+mkdir -p "$work"
 rm -rf "$profile" "$work/iso"
 cp -r /usr/share/archiso/configs/releng "$profile"
 cp -rT "$root/iso/airootfs" "$profile/airootfs"
