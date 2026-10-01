@@ -11,6 +11,22 @@ permissions:
   contents: read
 
 jobs:
+  # release only takes what staging has: changes go feature branch -> staging
+  # -> release.
+  source-branch:
+    if: github.event_name == 'pull_request' && github.base_ref == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull requests into release must come from staging
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [ "$HEAD_REF" != staging ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::release takes pull requests from staging only (this one is from $HEAD_REPO:$HEAD_REF)"
+            exit 1
+          fi
+
   static:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
