@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [release]
   workflow_dispatch:
-  # TEMPORARY, for debugging the build itself: remove before merging.
-  push:
-    branches: ['ci/**']
 
 permissions:
   contents: read
