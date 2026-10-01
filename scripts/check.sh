@@ -12,7 +12,7 @@
 #   .desktop       desktop-file-validate
 #   PKGBUILD       makepkg --printsrcinfo, and source/sha256sums counts match
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 strict=${CHECK_STRICT:-0}
 failures=0
