@@ -1,0 +1,89 @@
+# Full build on pull requests into release: every package, then the ISO.
+# workflow_dispatch runs it on any branch, for testing the build itself.
+name: build
+
+on:
+  pull_request:
+    branches: [release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # The runner image ships ~30 GB of SDKs this build never uses; the
+      # Flutter and KDE build dependencies need the room.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          path: couchbox
+
+      - uses: actions/checkout@v4
+        with:
+          repository: jpsutton/fire-blaster
+          path: fire-blaster
+
+      - name: Build packages (archlinux container)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/couchbox:/src" \
+            -v "$GITHUB_WORKSPACE/fire-blaster:/fire-blaster" \
+            -e FIRE_BLASTER_SRC=/fire-blaster \
+            -w /src archlinux:base-devel scripts/ci/build-packages.sh
+
+      - name: Disk after build
+        if: always()
+        run: df -h /
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-repo
+          path: couchbox/out/repo/
+          if-no-files-found: error
+          retention-days: 14
+
+  iso:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: couchbox-repo
+          path: out/repo
+
+      # Privileged: mkarchiso (pacstrap) mounts /proc, /sys and /dev in the image root.
+      - name: Build ISO (archlinux container)
+        run: |
+          docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src archlinux:base-devel scripts/ci/build-iso.sh
+
+      # GitHub release assets are limited to 2 GiB each.
+      - name: ISO size
+        run: |
+          ls -la out/*.iso
+          size=$(stat -c %s out/*.iso)
+          echo "ISO: $((size / 1048576)) MiB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -ge 2147483648 ]; then
+            echo "::warning::ISO is over 2 GiB, the GitHub release asset limit"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-iso
+          path: out/*.iso
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

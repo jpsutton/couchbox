@@ -5,23 +5,34 @@
 # action. Built from the fire-blaster working tree next to this repo:
 # scripts/build-repo.sh packs it into fire-blaster-src.tar.gz and writes
 # srcstamp (the newest file's mtime), so each change gets a newer pkgver.
+#
+# The TV code sets are generated at build time from the Amazon Fire TV IR
+# dump (pinned to a commit), with fire-blaster's own importer, so they never
+# need to be committed anywhere.
 
 pkgname=fire-blaster
 pkgver=0.1.0.r$(<srcstamp)
 pkgrel=1
 pkgdesc="Bluetooth remote keys to IR for the TV, plus long-press key actions"
 arch=(any)
-url="https://github.com/jpsutton/service.irblaster"
+url="https://github.com/jpsutton/fire-blaster"
 license=(MIT)
 depends=(python python-evdev)
 makedepends=(python-build python-installer python-setuptools python-wheel)
 optdepends=('pyside6: fireblaster-setup, the on-screen setup overlay')
-source=(fire-blaster-src.tar.gz)
-sha256sums=(SKIP)
+_irdb=e100a909718731a316032d3257a878231796457f
+source=(fire-blaster-src.tar.gz
+        "ir_profiles_db-${_irdb:0:7}.json::https://raw.githubusercontent.com/shaikh-amaan-fm/fire_tv_remote_ir_db/$_irdb/ir_profiles_db.json")
+sha256sums=(SKIP
+            548d93af6248a2f06e403b0206c5184f9a64df63b40bc8fcb3bea8c76e3a940f)
 
 build() {
   cd fire-blaster
   python -m build --wheel --no-isolation
+  # TVs and projectors: what setup mode offers.
+  rm -rf profiles
+  PYTHONPATH=src python -m fireblaster.importer "$srcdir/ir_profiles_db-${_irdb:0:7}.json" \
+    -o profiles -t tv -t projector
 }
 
 package() {

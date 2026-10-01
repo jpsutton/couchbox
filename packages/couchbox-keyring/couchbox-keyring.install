@@ -1,0 +1,12 @@
+# Add (or refresh) couchbox's package signing key in pacman's keyring, the
+# way archlinux-keyring does. Skipped while pacman's keyring is not set up yet;
+# pacstrap -K and pacman-key --init both lead to a populate later.
+post_install() {
+  if usr/bin/pacman-key -l >/dev/null 2>&1; then
+    usr/bin/pacman-key --populate couchbox
+  fi
+}
+
+post_upgrade() {
+  post_install
+}

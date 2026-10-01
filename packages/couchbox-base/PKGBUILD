@@ -5,7 +5,7 @@
 # install into the appliance: autologin, service presets, and home-screen tiles.
 
 pkgname=couchbox-base
-pkgver=0.7.8
+pkgver=0.8.0
 pkgrel=1
 pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
 arch=(any)
@@ -32,6 +32,8 @@ depends=(
   couchbox-wallpapers
   # The couchbox page in Bigscreen Settings (packages/couchbox-settings)
   couchbox-settings
+  # Trusts the key that signs the [couchbox] repo
+  couchbox-keyring
   # kodi-addon-jellyfin imports typing_extensions but doesn't depend on it
   python-typing_extensions
   noto-fonts

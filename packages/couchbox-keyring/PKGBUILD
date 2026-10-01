@@ -1,0 +1,19 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# The key that signs the couchbox packages and repo database (the release
+# workflow holds the private half as the COUCHBOX_GPG_KEY secret).
+# Fingerprint: 30DF04A7B6501BD317ADD964250A71E231E76DE0
+
+pkgname=couchbox-keyring
+pkgver=1
+pkgrel=1
+pkgdesc="couchbox package signing key"
+arch=(any)
+license=(MIT)
+install=couchbox-keyring.install
+source=(couchbox.gpg couchbox-trusted couchbox-revoked)
+sha256sums=(SKIP SKIP SKIP)
+
+package() {
+  install -Dm644 -t "$pkgdir/usr/share/pacman/keyrings" couchbox.gpg couchbox-trusted couchbox-revoked
+}
