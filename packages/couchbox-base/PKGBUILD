@@ -5,7 +5,7 @@
 # install into the appliance: autologin, service presets, and home-screen tiles.
 
 pkgname=couchbox-base
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
 arch=(any)
@@ -60,6 +60,8 @@ source=(
   couchbox-bt-agent.service
   couchbox-power-profile
   couchbox-power-profile.service
+  90-couchbox-wifi-backup
+  sysctl-couchbox-arp.conf
   kwinrc
   couchbox-home.json
   couchbox-home.js
@@ -72,7 +74,7 @@ source=(
   couchbox-wallpaper-rotation.js
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -88,6 +90,8 @@ package() {
   install -Dm644 couchbox-bt-agent.service "$pkgdir/usr/lib/systemd/system/couchbox-bt-agent.service"
   install -Dm755 couchbox-power-profile "$pkgdir/usr/bin/couchbox-power-profile"
   install -Dm644 couchbox-power-profile.service "$pkgdir/usr/lib/systemd/system/couchbox-power-profile.service"
+  install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
+  install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"
   install -Dm644 fire-blaster.toml "$pkgdir/etc/fire-blaster/config.toml"
   install -Dm644 kglobalshortcutsrc "$pkgdir/etc/xdg/kglobalshortcutsrc"
