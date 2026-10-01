@@ -12,7 +12,7 @@ hostname=couchbox
 timezone=UTC
 user=htpc
 assume_yes=0
-repo_dir=/var/lib/couchbox/repo        # couchbox packages, kept on the target
+couchbox_repo_url=https://github.com/jpsutton/couchbox/releases/latest/download
 offline_dir=/var/lib/couchbox/offline  # everything the install needs
 target_list=/etc/couchbox/target-packages
 
@@ -149,17 +149,16 @@ pacstrap -C "$conf" -K -M /mnt "${pkgs[@]}"
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # For online updates later: Arch's geo-balanced mirror (the packaged
-# mirrorlist has every server commented out), plus the couchbox repo kept on
-# the box so pacman can still resolve the AUR builds.
+# mirrorlist has every server commented out), plus the couchbox repo: the
+# assets of the latest couchbox release on GitHub, signed with the key in
+# couchbox-keyring (installed above, so pacstrap -K already trusts it).
 sed -i '0,/^#Server/s|^#Server|Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n&|' \
   /mnt/etc/pacman.d/mirrorlist
-mkdir -p "/mnt${repo_dir%/*}"
-cp -r "$repo_dir" "/mnt$repo_dir"
 cat >> /mnt/etc/pacman.conf <<EOF
 
 [couchbox]
-SigLevel = Optional TrustAll
-Server = file://$repo_dir
+SigLevel = Required
+Server = $couchbox_repo_url
 EOF
 
 echo "==> Configuring system"

@@ -84,6 +84,39 @@ make repo    # clean-chroot builds into out/repo (asks for sudo)
 make iso     # out/couchbox-*.iso
 ```
 
+## Branches and CI
+
+Changes go feature branch -> `staging` -> `release`, each step a pull request.
+`staging` is the default branch.
+
+| Event | Workflow | What runs |
+|---|---|---|
+| PR into `staging` or `release` | `checks` | `scripts/check.sh` (same as `make check`), about a minute |
+| PR into `release` | `checks` | also: the PR must come from `staging` |
+| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), then the ISO in a privileged one (`scripts/ci/build-iso.sh`); both uploaded as artifacts |
+| merge into `release` | `release` | no rebuild: takes the PR's build artifacts, signs the packages and repo database, tags `YYYY.MM.DD`, and publishes a GitHub Release |
+
+Merge staging -> release PRs with **Create a merge commit**: the release
+workflow finds the PR's build through the merge commit's second parent, and
+refuses to publish if the merged tree differs from what was built.
+
+## Releases
+
+Each release carries the ISO (when it fits GitHub's 2 GiB asset limit) and the
+couchbox pacman repo: the packages, a detached `.sig` for each, and the signed
+`couchbox.db`. Installed boxes use it as
+
+```
+[couchbox]
+SigLevel = Required
+Server = https://github.com/jpsutton/couchbox/releases/latest/download
+```
+
+trusting the key in `couchbox-keyring` (fingerprint `30DF04A7B6501BD317ADD964250A71E231E76DE0`).
+The private key is the `COUCHBOX_GPG_KEY` repository secret; only the release
+workflow reads it. To roll a box back, point `Server` at an older release:
+`.../releases/download/<tag>`.
+
 ## Install
 
 1. Boot the ISO in UEFI mode. BIOS boot is not supported.
@@ -95,7 +128,8 @@ For unattended installs, run `couchbox-install --yes /dev/<disk>` instead.
 No network is needed. The ISO carries an offline repo with every package the
 installer uses, for both Intel and AMD boxes; the list lives in
 `iso/target-packages`. The installed system is set up for online updates:
-Arch's geo mirror plus the couchbox repo copied to `/var/lib/couchbox/repo`.
+Arch's geo mirror plus the signed couchbox repo on GitHub releases (see
+Releases below).
 
 The installer **erases the whole disk**. It never offers the USB stick it
 booted from, and the erase prompt defaults to No. It creates a GPT with a 1
