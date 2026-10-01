@@ -1,0 +1,9 @@
+
+couchbox network installer
+
+  1. Plug in a network cable, or pick Wi-Fi in the installer.
+  2. Run `couchbox-install`. This ERASES the disk you pick.
+
+  The installer downloads couchbox from the internet (about 1.5 GiB).
+  Wi-Fi by hand: `iwctl station wlan0 connect <network>`.
+

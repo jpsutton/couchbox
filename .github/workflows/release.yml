@@ -2,7 +2,8 @@
 # staging already ran the full build (build.yml), so this takes that run's
 # artifacts, signs the packages and the repo database (COUCHBOX_GPG_KEY), tags
 # the release (YYYY.MM.DD, .N for more in one day) and creates a GitHub Release
-# with the ISO and the signed pacman repo, which installed boxes update from.
+# with the ISOs (full and netinstall) and the signed pacman repo, which
+# installed boxes update from.
 #
 # Merge staging -> release pull requests with "Create a merge commit": the PR's
 # head is then the merge commit's second parent, which is what this looks up.
@@ -56,6 +57,7 @@ jobs:
         run: |
           gh run download "${{ steps.build.outputs.run }}" -R "$GITHUB_REPOSITORY" -n couchbox-repo -D dist/repo
           gh run download "${{ steps.build.outputs.run }}" -R "$GITHUB_REPOSITORY" -n couchbox-iso -D dist/iso
+          gh run download "${{ steps.build.outputs.run }}" -R "$GITHUB_REPOSITORY" -n couchbox-netiso -D dist/iso
           ls -la dist/repo dist/iso
 
       - name: Sign the repo (archlinux container)

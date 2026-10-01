@@ -5,7 +5,9 @@
 #   couchbox-install [--yes] [--hostname NAME] [--timezone ZONE] DISK
 #
 # Layout: GPT, 1 GiB ESP at /boot (systemd-boot), ext4 root on the rest.
-# Installs from the offline repo on the ISO, so no network is needed.
+# The full ISO installs from its offline repo, so no network is needed. The
+# netinstall ISO has no offline repo: it downloads from Arch's mirrors and the
+# couchbox repo on GitHub, and offers a Wi-Fi picker when there's no network.
 set -euo pipefail
 
 hostname=couchbox
@@ -13,8 +15,13 @@ timezone=UTC
 user=htpc
 assume_yes=0
 couchbox_repo_url=https://github.com/jpsutton/couchbox/releases/latest/download
-offline_dir=/var/lib/couchbox/offline  # everything the install needs
+# Arch's geo-balanced mirror; $repo and $arch are pacman's, not the shell's.
+# shellcheck disable=SC2016
+arch_mirror='https://geo.mirror.pkgbuild.com/$repo/os/$arch'
+offline_dir=/var/lib/couchbox/offline  # full ISO: everything the install needs
 target_list=/etc/couchbox/target-packages
+# Set by wifi_connect, so the installed system joins the same network.
+wifi_ssid='' wifi_psk=''
 
 usage() { sed -n '2,7s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
 die() { echo "couchbox-install: $*" >&2; exit 1; }
@@ -22,12 +29,20 @@ die() { echo "couchbox-install: $*" >&2; exit 1; }
 # whiptail writes the choice to stderr; swap it onto stdout for capture.
 tui() { whiptail --title "couchbox installer" "$@" 3>&1 1>&2 2>&3; }
 
-# The disk the installer booted from, if any, so it is never offered.
-installer_disk() {
-  local live
-  live=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null) || return 0
-  lsblk -no PKNAME "$live" 2>/dev/null
+# The disk(s) the installer booted from, so they are never offered. Found by
+# the ISO's UUID on the kernel command line, not by its mount: archiso copies a
+# small image to RAM and unmounts the medium. A hybrid ISO shows the UUID on
+# the whole disk and on its first partition.
+installer_disks() {
+  local uuid dev parent
+  uuid=$(sed -n 's/.*archisosearchuuid=\([^ ]*\).*/\1/p' /proc/cmdline)
+  [[ -n $uuid ]] || return 0
+  blkid -t UUID="$uuid" -o device 2>/dev/null | while read -r dev; do
+    parent=$(lsblk -dno PKNAME "$dev" 2>/dev/null)
+    basename "${parent:-$dev}"
+  done | sort -u
 }
+is_installer_disk() { installer_disks | grep -qxF "${1#/dev/}"; }
 
 # describe <disk>: "119.2G  Samsung SSD 970 (nvme)". One lsblk call per
 # column, because MODEL and TRAN can each be empty or contain spaces.
@@ -40,17 +55,113 @@ describe() {
 }
 
 pick_disk() {
-  local skip name items=()
-  skip=$(installer_disk)
+  local name items=()
   while read -r name; do
-    [[ ${name#/dev/} == "$skip" ]] && continue
+    is_installer_disk "$name" && continue
     items+=("$name" "$(describe "$name")")
-  # Real disks only: zram swap also reports TYPE=disk, and empty card-reader
-  # slots report size 0.
-  done < <(lsblk -dnpo NAME,TYPE,SIZE -b | awk '$2 == "disk" && $3 > 0 && $1 !~ /\/zram/ { print $1 }')
+  # Real disks only: zram swap and floppy drives (VMs) also report TYPE=disk,
+  # and empty card-reader slots report size 0.
+  done < <(lsblk -dnpo NAME,TYPE,SIZE -b | awk '$2 == "disk" && $3 > 0 && $1 !~ /\/(zram|fd)[0-9]/ { print $1 }')
   [[ ${#items[@]} -gt 0 ]] || die "no disks found to install on"
   tui --menu "Install couchbox on which disk?\n\nThe disk you pick is ERASED completely." \
     18 72 8 "${items[@]}"
+}
+
+# online: the couchbox repo on GitHub answers (it redirects to the release).
+online() { curl -sfIL --max-time 10 -o /dev/null "$couchbox_repo_url/couchbox.db"; }
+
+# The first Wi-Fi interface, if any.
+wifi_device() {
+  local dev
+  for dev in /sys/class/net/*; do
+    [[ -e $dev/phy80211 ]] && { basename "$dev"; return 0; }
+  done
+  return 0
+}
+
+# iwd's file name for a network's settings: the SSID itself when it is only
+# letters, digits, space, _ and -, else = and the SSID in hex.
+iwd_name() {
+  if [[ $1 =~ ^[A-Za-z0-9\ _-]+$ ]]; then
+    printf '%s' "$1"
+  else
+    printf '=%s' "$(printf '%s' "$1" | od -An -tx1 | tr -d ' \n')"
+  fi
+}
+
+# wifi_connect: scan, pick a network, ask for its passphrase, connect.
+# Returns 0 once the couchbox repo is reachable.
+wifi_connect() {
+  local dev line ssid sec pw i choice items=() ssids=() secs=()
+  dev=$(wifi_device)
+  [[ -n $dev ]] || return 1
+  echo "==> Scanning for Wi-Fi networks on $dev"
+  iwctl station "$dev" scan 2>/dev/null || true
+  sleep 5
+  # get-networks prints a table, colored even when piped: strip the escapes,
+  # then take the rows that end in security and a signal bar of *s.
+  while IFS= read -r line; do
+    line=$(sed 's/\x1b\[[0-9;]*m//g; s/^[ >]*//; s/ *$//' <<<"$line")
+    if [[ $line =~ ^(.*[^ ])\ +(open|psk|8021x|wep)\ +\*+$ ]]; then
+      ssids+=("${BASH_REMATCH[1]}")
+      secs+=("${BASH_REMATCH[2]}")
+    fi
+  done < <(iwctl station "$dev" get-networks 2>/dev/null)
+  if [[ ${#ssids[@]} -eq 0 ]]; then
+    tui --msgbox "No Wi-Fi networks found on $dev." 8 60
+    return 1
+  fi
+  for i in "${!ssids[@]}"; do
+    items+=("$((i + 1))" "${ssids[i]}  (${secs[i]})")
+  done
+  choice=$(tui --menu "Connect to which Wi-Fi network?" 18 70 10 "${items[@]}") || return 1
+  ssid=${ssids[choice - 1]} sec=${secs[choice - 1]}
+  case $sec in
+    open) pw= ;;
+    psk)
+      pw=$(tui --passwordbox "Passphrase for '$ssid'" 8 70) || return 1
+      # In a settings file, not on iwctl's command line.
+      mkdir -p /var/lib/iwd
+      printf '[Security]\nPassphrase=%s\n' "$pw" > "/var/lib/iwd/$(iwd_name "$ssid").psk"
+      chmod 600 "/var/lib/iwd/$(iwd_name "$ssid").psk"
+      ;;
+    *)
+      tui --msgbox "'$ssid' uses $sec security, which this menu can't set up.\n\nQuit to the shell and use iwctl." 10 64
+      return 1 ;;
+  esac
+  echo "==> Connecting to $ssid"
+  iwctl --dont-ask station "$dev" connect "$ssid" || true
+  for i in $(seq 15); do
+    if online; then
+      wifi_ssid=$ssid wifi_psk=$pw
+      return 0
+    fi
+    sleep 2
+  done
+  tui --msgbox "Could not reach the internet through '$ssid'.\n\nCheck the passphrase and try again." 10 64
+  return 1
+}
+
+# ensure_network: wait for a working connection. Wired comes up by itself
+# (DHCP); in the menus, offer Wi-Fi and retries.
+ensure_network() {
+  local i choice items
+  echo "==> Checking the network"
+  for i in $(seq "$1"); do
+    online && return 0
+    sleep 5
+  done
+  [[ $interactive -eq 1 ]] || die "no network: cannot reach $couchbox_repo_url"
+  while ! online; do
+    items=(retry "Try again (after plugging in a network cable)")
+    [[ -z $(wifi_device) ]] || items+=(wifi "Connect to Wi-Fi")
+    items+=(quit "Quit to a shell")
+    choice=$(tui --menu "No internet connection.\n\nThis installer downloads couchbox (about 1.5 GiB)." 15 70 3 "${items[@]}") || choice=quit
+    case $choice in
+      wifi) wifi_connect && return 0 ;;
+      quit) die "no network; connect (iwctl for Wi-Fi), then run couchbox-install" ;;
+    esac
+  done
 }
 
 while [[ $# -gt 0 ]]; do
@@ -77,12 +188,22 @@ fi
 [[ -d /sys/firmware/efi ]] || die "boot the installer in UEFI mode"
 [[ -e /usr/share/zoneinfo/$timezone ]] || die "unknown timezone: $timezone"
 
+# The netinstall ISO has no offline repo, so check the network before
+# touching a disk.
+if [[ -d $offline_dir ]]; then
+  netinstall=0
+else
+  netinstall=1
+  # Unattended: wait up to a minute for wired DHCP.
+  if [[ $interactive -eq 1 ]]; then ensure_network 2; else ensure_network 12; fi
+fi
+
 if [[ $interactive -eq 1 ]]; then
   disk=$(pick_disk) || die "cancelled; run couchbox-install to start again"
 fi
 
 [[ -b $disk && $(lsblk -dno TYPE "$disk") == disk ]] || die "$disk is not a whole disk"
-[[ $(installer_disk) != "${disk#/dev/}" ]] || die "$disk holds the installer"
+! is_installer_disk "$disk" || die "$disk holds the installer"
 lsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINTS "$disk"
 
 # Always confirm unless --yes, whether the disk came from the menu or the
@@ -102,6 +223,14 @@ esac
 # shellcheck disable=SC2207  # package names contain no spaces
 pkgs=($(packages all) $([[ -z $vendor ]] || packages "$vendor"))
 [[ ${#pkgs[@]} -gt 0 ]] || die "no packages listed in $target_list"
+
+# Signature checks need the live keyring (with couchbox's key). Once the
+# network is up, pacman-init.service waits for the clock to sync, then sets the
+# keyring up; that usually finishes while the disk menu is open.
+if [[ $netinstall -eq 1 ]]; then
+  echo "==> Preparing the package keyring (waits for the clock to sync)"
+  timeout 120 systemctl start pacman-init.service || die "the pacman keyring is not ready (pacman-init.service); nothing was changed"
+fi
 
 echo "==> Partitioning $disk"
 wipefs -a "$disk"
@@ -135,7 +264,8 @@ echo "==> Installing packages"
 mkdir -p /mnt/etc
 echo KEYMAP=us > /mnt/etc/vconsole.conf
 conf=$(mktemp)
-cat > "$conf" <<EOF
+if [[ $netinstall -eq 0 ]]; then
+  cat > "$conf" <<EOF
 [options]
 Architecture = auto
 SigLevel = Required DatabaseOptional
@@ -144,6 +274,25 @@ SigLevel = Required DatabaseOptional
 SigLevel = Optional TrustAll
 Server = file://$offline_dir
 EOF
+else
+  # Arch first, then couchbox, the same order the installed system uses.
+  cat > "$conf" <<EOF
+[options]
+Architecture = auto
+ParallelDownloads = 5
+SigLevel = Required DatabaseOptional
+
+[core]
+Server = $arch_mirror
+
+[extra]
+Server = $arch_mirror
+
+[couchbox]
+SigLevel = Required
+Server = $couchbox_repo_url
+EOF
+fi
 # -M: don't copy the live mirrorlist; the target gets its own below.
 pacstrap -C "$conf" -K -M /mnt "${pkgs[@]}"
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -152,7 +301,7 @@ genfstab -U /mnt >> /mnt/etc/fstab
 # mirrorlist has every server commented out), plus the couchbox repo: the
 # assets of the latest couchbox release on GitHub, signed with the key in
 # couchbox-keyring (installed above, so pacstrap -K already trusts it).
-sed -i '0,/^#Server/s|^#Server|Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n&|' \
+sed -i "0,/^#Server/s|^#Server|Server = $arch_mirror\n&|" \
   /mnt/etc/pacman.d/mirrorlist
 cat >> /mnt/etc/pacman.conf <<EOF
 
@@ -160,6 +309,19 @@ cat >> /mnt/etc/pacman.conf <<EOF
 SigLevel = Required
 Server = $couchbox_repo_url
 EOF
+
+# A Wi-Fi network joined from the installer: give NetworkManager on the
+# installed system the same one, so the box is online after the first boot.
+if [[ -n $wifi_ssid ]]; then
+  nmconn=/mnt/etc/NetworkManager/system-connections/couchbox-install-wifi.nmconnection
+  mkdir -p "${nmconn%/*}"
+  {
+    printf '[connection]\nid=%s\ntype=wifi\n\n[wifi]\nmode=infrastructure\nssid=%s\n\n' "$wifi_ssid" "$wifi_ssid"
+    [[ -z $wifi_psk ]] || printf '[wifi-security]\nkey-mgmt=wpa-psk\npsk=%s\n\n' "$wifi_psk"
+    printf '[ipv4]\nmethod=auto\n\n[ipv6]\nmethod=auto\n'
+  } > "$nmconn"
+  chmod 600 "$nmconn"
+fi
 
 echo "==> Configuring system"
 root_partuuid=$(blkid -s PARTUUID -o value "$rootdev")
