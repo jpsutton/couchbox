@@ -1,0 +1,55 @@
+# Full build on pull requests into release: every package, then the ISO.
+# workflow_dispatch runs it on any branch, for testing the build itself.
+name: build
+
+on:
+  pull_request:
+    branches: [release]
+  workflow_dispatch:
+  # TEMPORARY, for debugging the build itself: remove before merging.
+  push:
+    branches: ['ci/**']
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # The runner image ships ~30 GB of SDKs this build never uses; the
+      # Flutter and KDE build dependencies need the room.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          path: couchbox
+
+      - uses: actions/checkout@v4
+        with:
+          repository: jpsutton/fire-blaster
+          path: fire-blaster
+
+      - name: Build packages (archlinux container)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/couchbox:/src" \
+            -v "$GITHUB_WORKSPACE/fire-blaster:/fire-blaster" \
+            -e FIRE_BLASTER_SRC=/fire-blaster \
+            -w /src archlinux:base-devel scripts/ci/build-packages.sh
+
+      - name: Disk after build
+        if: always()
+        run: df -h /
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-repo
+          path: couchbox/out/repo/
+          if-no-files-found: error
+          retention-days: 14
