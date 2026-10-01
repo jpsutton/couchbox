@@ -2,10 +2,9 @@
 # package list; the target system comes from the offline repo instead.
 base
 linux
-# Enough GPU firmware for a working console on Intel and AMD boxes.
-linux-firmware-intel
-linux-firmware-amdgpu
-linux-firmware-radeon
+# No firmware: the installer is a console TUI that needs no network, and
+# without GPU firmware the console stays on the UEFI framebuffer. Leaving it out
+# (about 160 MiB) keeps the ISO under GitHub's 2 GiB release asset limit.
 mkinitcpio
 mkinitcpio-archiso
 # couchbox-install (libnewt: whiptail for the disk picker)
