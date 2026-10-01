@@ -6,4 +6,9 @@ post_install() {
 
 post_upgrade() {
   couchbox-update-app-blacklist
+  # Up to 0.8.1, couchbox-power-profile.service was installed into
+  # multi-user.target, which made an ordering cycle; move it to graphical.target.
+  if [[ -L etc/systemd/system/multi-user.target.wants/couchbox-power-profile.service ]]; then
+    systemctl reenable couchbox-power-profile.service
+  fi
 }
