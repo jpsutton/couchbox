@@ -6,8 +6,9 @@ tile, so you can switch between clients from the couch. Bluetooth remotes
 control it. A built-in ZeroTier client reaches the home server from any
 network.
 
-The build produces an installer ISO. You boot it, run one command, and get a
-finished box.
+The build produces two installer ISOs: a full one that installs offline, and
+a small netinstall one that downloads everything during the install. You boot
+either one, pick a disk, and get a finished box.
 
 **Status:** the ISO builds, and a QEMU/OVMF test passed on 2026-09-28. The
 unattended install (`couchbox-install --yes`) finished, and the installed
@@ -67,21 +68,26 @@ packages/couchbox-wallpapers/  14 TV-friendly KDE wallpapers; Bigscreen's defaul
 packages/couchbox-settings/  "couchbox" page in Bigscreen Settings (KCM); options in ~/.config/couchboxrc
 scripts/build-repo.sh     builds the AUR and local packages in a clean chroot into out/repo
                           (packs ../fire-blaster, or $FIRE_BLASTER_SRC, as fire-blaster's source)
-scripts/build-iso.sh      releng profile with a minimal live system, plus an offline repo of everything the target needs
+scripts/build-iso.sh      releng profile with a minimal live system; full: plus an offline repo of everything
+                          the target needs; net: plus Wi-Fi and network firmware instead
 iso/target-packages       what the installer puts on a target, by CPU vendor
-iso/airootfs/             files added to the live ISO, including couchbox-install
+iso/airootfs/             files added to both live ISOs, including couchbox-install
+iso/airootfs-net/, iso/packages-net.x86_64, iso/net-noextract.conf, iso/net-drop-modules
+                          netinstall ISO only: motd and initramfs config, extra packages, and the
+                          firmware and kernel modules it leaves out (scripts/*-noextract.sh)
 disabled-packages/        kept but not built: jellium-desktop (patched Jellium, off since 2026-09-29),
                           jellyfin-desktop (its tile, TV-mode launcher and remote input map, removed 2026-10-01)
 ```
 
 ## Build
 
-On an Arch host with `devtools`, `archiso` and `pacman-contrib` installed:
+On an Arch host with `devtools`, `archiso`, `pacman-contrib` and `grub` (netinstall ISO only) installed:
 
 ```sh
 make check   # static checks, no root needed
 make repo    # clean-chroot builds into out/repo (asks for sudo)
 make iso     # out/couchbox-*.iso
+make netiso  # out/couchbox-net-*.iso; needs no `make repo`
 ```
 
 ## Branches and CI
@@ -93,7 +99,7 @@ Changes go feature branch -> `staging` -> `release`, each step a pull request.
 |---|---|---|
 | PR into `staging` or `release` | `checks` | `scripts/check.sh` (same as `make check`), about a minute |
 | PR into `release` | `checks` | also: the PR must come from `staging` |
-| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), then the ISO in a privileged one (`scripts/ci/build-iso.sh`); both uploaded as artifacts |
+| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), then the ISO in a privileged one (`scripts/ci/build-iso.sh`), and the netinstall ISO in parallel (`scripts/ci/build-iso.sh net`); all uploaded as artifacts |
 | merge into `release` | `release` | no rebuild: takes the PR's build artifacts, signs the packages and repo database, tags `YYYY.MM.DD`, and publishes a GitHub Release |
 
 Merge staging -> release PRs with **Create a merge commit**: the release
@@ -102,8 +108,8 @@ refuses to publish if the merged tree differs from what was built.
 
 ## Releases
 
-Each release carries the ISO (when it fits GitHub's 2 GiB asset limit) and the
-couchbox pacman repo: the packages, a detached `.sig` for each, and the signed
+Each release carries both ISOs (the full one when it fits GitHub's 2 GiB asset
+limit) and the couchbox pacman repo: the packages, a detached `.sig` for each, and the signed
 `couchbox.db`. Installed boxes use it as
 
 ```
@@ -125,11 +131,25 @@ workflow reads it. To roll a box back, point `Server` at an older release:
 
 For unattended installs, run `couchbox-install --yes /dev/<disk>` instead.
 
-No network is needed. The ISO carries an offline repo with every package the
-installer uses, for both Intel and AMD boxes; the list lives in
-`iso/target-packages`. The installed system is set up for online updates:
-Arch's geo mirror plus the signed couchbox repo on GitHub releases (see
-Releases below).
+The full ISO (`couchbox-*.iso`, about 2 GiB) needs no network. It carries an
+offline repo with every package the installer uses, for both Intel and AMD
+boxes; the list lives in `iso/target-packages`.
+
+The netinstall ISO (`couchbox-net-*.iso`) carries only the live system and
+downloads the same package list during the install (about 1.5 GiB): Arch
+packages from Arch's geo mirror, couchbox packages from the latest GitHub
+release, checked against the couchbox key. Wired networks come up by
+themselves (DHCP). With no connection, the installer offers a Wi-Fi menu
+(iwd; open and WPA-Personal networks; for others, quit to the shell and use
+`iwctl`). A Wi-Fi network picked there is also saved for NetworkManager on
+the installed system, so the box comes up online. To stay small (about 340
+MiB), the live system has firmware for Wi-Fi chips and Realtek Ethernet only,
+no GPU, sound, camera or server-hardware drivers (the console stays on the
+UEFI framebuffer), and boots with GRUB, which reads the kernel from the ISO
+instead of a second copy in the EFI partition.
+
+Either way, the installed system is set up for online updates: Arch's geo
+mirror plus the signed couchbox repo on GitHub releases (see Releases below).
 
 The installer **erases the whole disk**. It never offers the USB stick it
 booted from, and the erase prompt defaults to No. It creates a GPT with a 1
@@ -137,6 +157,13 @@ GiB ESP and an ext4 root, installs systemd-boot, and creates the `htpc` user.
 SDDM logs that user in automatically. The `htpc` password is only for sudo and
 SSH; root stays locked. Use `--yes` to skip the prompts, which leaves the
 `htpc` password locked.
+
+If the box shows "Reboot and select proper boot device" after the install,
+the firmware is trying a legacy (CSM) boot of the disk. Pick the disk's UEFI
+entry ("UEFI OS", "Linux Boot Manager" or "UEFI: <disk>") in the firmware's
+boot menu, or turn CSM off. Some AMI firmware (seen on a Bay Trail BRIX) also
+drops the boot entry the installer creates; the box then boots through the
+fallback loader, `\EFI\BOOT\BOOTX64.EFI`, which the installer also writes.
 
 ## How the tiles work
 

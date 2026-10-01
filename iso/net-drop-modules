@@ -1,0 +1,92 @@
+# Kernel module trees left out of the netinstall ISO's live system: hardware
+# the installer never uses. Paths are under usr/lib/modules/<version>/kernel/.
+# scripts/module-noextract.sh also leaves out every module that depends on one
+# of these (GPU drivers need cec from media, some HID drivers need snd), so
+# nothing that stays is left unloadable.
+#
+# The console needs no GPU driver: it stays on the UEFI framebuffer
+# (simpledrm, built into the kernel). Bluetooth stays: Redpine (rsi) Wi-Fi
+# drivers depend on it.
+drivers/gpu
+drivers/accel
+drivers/media
+sound
+drivers/iio
+drivers/infiniband
+drivers/staging
+kheaders.ko
+
+# Server and data-centre hardware: Fibre Channel and iSCSI-offload adapters,
+# SCSI target mode, and 25-400 Gb, SmartNIC and cloud-VM network adapters.
+# Desktop network chips stay (Intel e1000e/igb/igc/ixgbe, Realtek, Broadcom
+# tg3, Marvell sky2, Aquantia, ...).
+drivers/scsi/lpfc
+drivers/scsi/qla2xxx
+drivers/scsi/qla4xxx
+drivers/scsi/bfa
+drivers/scsi/be2iscsi
+drivers/scsi/bnx2fc
+drivers/scsi/bnx2i
+drivers/scsi/csiostor
+drivers/scsi/cxgbi
+drivers/scsi/fcoe
+drivers/scsi/fnic
+drivers/scsi/qedf
+drivers/scsi/qedi
+drivers/scsi/elx
+drivers/scsi/snic
+drivers/target
+drivers/net/ethernet/mellanox
+drivers/net/ethernet/chelsio
+drivers/net/ethernet/qlogic
+drivers/net/ethernet/broadcom/bnx2x
+drivers/net/ethernet/broadcom/bnxt
+drivers/net/ethernet/broadcom/bnge
+drivers/net/ethernet/intel/ice
+drivers/net/ethernet/intel/i40e
+drivers/net/ethernet/intel/iavf
+drivers/net/ethernet/intel/idpf
+drivers/net/ethernet/intel/fm10k
+drivers/net/ethernet/huawei
+drivers/net/ethernet/cavium
+drivers/net/ethernet/emulex
+drivers/net/ethernet/netronome
+drivers/net/ethernet/pensando
+drivers/net/ethernet/sfc
+drivers/net/ethernet/fungible
+drivers/net/ethernet/amazon
+drivers/net/ethernet/google
+drivers/net/ethernet/microsoft
+drivers/net/ethernet/cisco
+drivers/net/ethernet/brocade
+drivers/net/ethernet/meta
+
+# Filesystems the installer never mounts: it only needs ext4 and vfat on the
+# target, and isofs and squashfs for itself. Network and cluster filesystems
+# go with their network protocols.
+fs/xfs
+fs/btrfs
+fs/bcachefs
+fs/f2fs
+fs/jfs
+fs/nilfs2
+fs/ntfs3
+fs/erofs
+fs/ubifs
+fs/ocfs2
+fs/gfs2
+fs/dlm
+fs/nfs
+fs/nfsd
+fs/ceph
+fs/smb
+fs/orangefs
+fs/afs
+fs/coda
+fs/9p
+net/ceph
+net/sunrpc
+net/rds
+net/tipc
+net/smc
+net/9p

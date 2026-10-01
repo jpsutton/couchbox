@@ -1,0 +1,14 @@
+# Added to packages.x86_64 for the netinstall ISO (build-iso.sh net).
+# Wired networking needs nothing extra: releng's systemd-networkd config runs
+# DHCP on every Ethernet port. Wi-Fi: iwd for the installer's network picker,
+# DHCP again from systemd-networkd.
+iwd
+wireless-regdb
+# Firmware for Wi-Fi chips and Realtek Ethernet. iso/net-noextract.conf keeps
+# only those files out of these packages (Intel's alone is 133 MiB, mostly GPU,
+# audio and Bluetooth firmware the installer has no use for).
+linux-firmware-atheros
+linux-firmware-broadcom
+linux-firmware-intel
+linux-firmware-mediatek
+linux-firmware-realtek

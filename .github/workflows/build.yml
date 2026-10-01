@@ -1,4 +1,5 @@
-# Full build on pull requests into release: every package, then the ISO.
+# Full build on pull requests into release: every package, then the ISO, and
+# the netinstall ISO alongside (it needs no packages).
 # workflow_dispatch runs it on any branch, for testing the build itself.
 name: build
 
@@ -83,6 +84,34 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: couchbox-iso
+          path: out/*.iso
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  # The netinstall ISO downloads its target at install time, so it doesn't
+  # wait for the packages job.
+  netiso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build netinstall ISO (archlinux container)
+        run: |
+          docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -w /src archlinux:base-devel scripts/ci/build-iso.sh net
+
+      - name: ISO size
+        run: |
+          ls -la out/*.iso
+          size=$(stat -c %s out/*.iso)
+          echo "Netinstall ISO: $((size / 1048576)) MiB" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-netiso
           path: out/*.iso
           if-no-files-found: error
           retention-days: 14
