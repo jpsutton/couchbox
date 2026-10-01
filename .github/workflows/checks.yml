@@ -1,0 +1,30 @@
+# Light checks on every pull request (into staging and into release): static
+# checks only, no package or ISO build. Same script as `make check`.
+name: checks
+
+on:
+  pull_request:
+    branches: [staging, release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install tools
+        run: pacman -Syu --noconfirm --needed git shellcheck desktop-file-utils libxml2 nodejs python
+
+      - uses: actions/checkout@v4
+
+      # makepkg refuses to run as root.
+      - name: Add an unprivileged user
+        run: |
+          useradd -m builder
+          chown -R builder: "$GITHUB_WORKSPACE"
+
+      - name: scripts/check.sh
+        run: su builder -c 'git config --global --add safe.directory "*" && CHECK_STRICT=1 scripts/check.sh'

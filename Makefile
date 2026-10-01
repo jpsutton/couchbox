@@ -6,12 +6,9 @@ repo:
 iso: repo
 	sudo scripts/build-iso.sh
 
-# Static checks that need no chroot or root.
+# Static checks that need no chroot or root (also run by CI on every PR).
 check:
-	bash -n scripts/*.sh iso/airootfs/usr/local/bin/couchbox-install
-	command -v shellcheck >/dev/null && shellcheck scripts/*.sh iso/airootfs/usr/local/bin/couchbox-install || true
-	command -v desktop-file-validate >/dev/null && desktop-file-validate packages/*/*.desktop || true
-	cd packages/couchbox-base && makepkg --printsrcinfo >/dev/null
+	scripts/check.sh
 
 clean:
 	sudo rm -rf work out
