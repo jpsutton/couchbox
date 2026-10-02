@@ -15,7 +15,7 @@ _pkgname=plezy
 pkgver=2.22.0
 pkgrel=1
 _flutter_ver=3.47.1
-pkgdesc="A modern Plex and Jellyfin client (with couchbox's remote and TV patches)"
+pkgdesc="A modern Plex, Jellyfin and Emby client (with couchbox's remote and TV patches)"
 provides=("plezy=$pkgver")
 conflicts=(plezy)
 arch=('x86_64')
