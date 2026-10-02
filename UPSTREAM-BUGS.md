@@ -28,9 +28,9 @@ Last updated: 2026-09-29
 | 14 | "Toggle Bigscreen Tasks Overview" shortcut has no handler | plasma-bigscreen 6.7.5 | Medium | Long Menu sends the home overlay's default Meta+O; tasks shortcut cleared | Not filed |
 | 15 | Opening a named PulseAudio sink takes ~31 s; playback stalls | kodi 21.3-12, pipewire 1.6.9 | High | Keep Kodi on the Default audio device | Not filed |
 | 16 | Media keys only reach MPRIS players; Kodi gets nothing | plasma-workspace 6.7.5 (mediacontrol) | Medium | `mediacontrol` bindings cleared in `/etc/xdg/kglobalshortcutsrc` | Not filed |
-| 17 | Play/Pause key only plays, never pauses, on Linux | plezy 2.21.0 | Medium | Patch `packages/plezy-couchbox/0002-linux-play-pause-key-toggles.patch` (in `plezy-couchbox`) | PR in preparation |
-| 18 | Home key does nothing; no way back to the Home tab from a remote | plezy 2.21.0 | Medium | Patch `packages/plezy-couchbox/0001-home-key-returns-to-home-tab.patch` (in `plezy-couchbox`) | PR in preparation |
-| 19 | UI too small on a TV from a desktop; Display Scale is car-only | plezy 2.21.0 | Medium | Patch `packages/plezy-couchbox/0003-desktop-display-scale.patch` (in `plezy-couchbox`) | PR in preparation |
+| 17 | Play/Pause key only plays, never pauses, on Linux | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0002-linux-play-pause-key-toggles.patch` (in `plezy-couchbox`) | PR in preparation |
+| 18 | Home key does nothing; no way back to the Home tab from a remote | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0001-home-key-returns-to-home-tab.patch` (in `plezy-couchbox`) | PR in preparation |
+| 19 | UI too small on a TV from a desktop; Display Scale is car-only | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0003-desktop-display-scale.patch` (in `plezy-couchbox`) | PR in preparation |
 | 20 | Card labels use fixed font sizes; no text size setting | plezy 2.21.0 | Low | Display Scale 1.75x (bug 19) instead; Text Size patch dropped | Not filed |
 | 21 | Random segfault starting Python add-ons (thread-state race in CPythonInvoker) | kodi 21.3-12, python 3.14.7 | Medium | None yet; relaunch | Known upstream ([xbmc#27025](https://github.com/xbmc/xbmc/issues/27025)); fixed in v22 only |
 
@@ -393,7 +393,7 @@ Plezy flashes the play disc and does not pause. Fast Forward and Rewind work
 - **Why not remap it:** XKB has no Play/Pause keysym to remap to; every evdev
   play key becomes `XF86AudioPlay`. So the fix has to be in the app.
 - **Patch:** `packages/plezy-couchbox/0002-linux-play-pause-key-toggles.patch`
-  (against tag 2.21.0). `classifyTransportKey()` takes an optional physical
+  (against tag 2.22.0). `classifyTransportKey()` takes an optional physical
   key and returns `toggle` for `PhysicalKeyboardKey.mediaPlayPause`. Its
   three callers pass the physical key: the video controls
   (`key_events.dart`), the player screen's remote transport
@@ -413,7 +413,7 @@ Home press belongs to the app (long Home goes to the Bigscreen launcher).
   Home tab" action, but only the companion remote's `onHome` command calls
   it; no key handler does.
 - **Patch:** `packages/plezy-couchbox/0001-home-key-returns-to-home-tab.patch`
-  (against tag 2.21.0). Extracts the `onHome` body into `_goToHomeTab()` and
+  (against tag 2.22.0). Extracts the `onHome` body into `_goToHomeTab()` and
   adds a `HardwareKeyboard` handler for `browserHome` that pops the profile
   navigator to its first route (closing pushed pages and the player) and then
   calls `_goToHomeTab()`. The handler swallows the key's repeat and release.
@@ -440,7 +440,7 @@ too small, and no setting changes them.
   `xdg-desktop-portal-kde` does not provide. `GDK_SCALE` on Wayland only
   raises the buffer scale; the logical size stays the same.
 - **Patch:** `packages/plezy-couchbox/0003-desktop-display-scale.patch`
-  (against tag 2.21.0). On desktop, `FormFactorScale` applies the stored
+  (against tag 2.22.0). On desktop, `FormFactorScale` applies the stored
   Display Scale (skipped at 1.0, the existing desktop default), and the
   slider appears under Settings, Appearance, Display.
 - **Video plane fix, same patch:** the scaled surface also scales
@@ -492,8 +492,8 @@ twice on the NUC (2026-09-29 16:14 UTC and 2026-10-01 03:34 UTC).
 ## Plezy pull requests
 
 Three separate PRs against https://github.com/edde746/plezy, one per patch,
-so each can be reviewed on its own. The patches are `git format-patch` output
-against tag 2.21.0 and apply in any order (they touch different files).
+so each can be reviewed on its own. The patches are diffs
+against tag 2.22.0 and apply in any order (they touch different files).
 
 - **couchbox build:** `packages/plezy-couchbox`, Arch's `plezy` PKGBUILD
   with the three patches in `prepare()`, built into the couchbox repo. It

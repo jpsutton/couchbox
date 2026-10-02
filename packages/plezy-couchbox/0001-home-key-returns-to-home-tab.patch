@@ -1,8 +1,8 @@
 diff --git a/lib/screens/main_screen.dart b/lib/screens/main_screen.dart
-index 17927de..b2d66b6 100644
+index 14eaa03..ba5827c 100644
 --- a/lib/screens/main_screen.dart
 +++ b/lib/screens/main_screen.dart
-@@ -510,6 +510,7 @@ class _MainScreenState extends State<MainScreen>
+@@ -521,6 +521,7 @@ class _MainScreenState extends State<MainScreen>
      _offlineUntilConnected = widget.isOfflineMode;
  
      WidgetsBinding.instance.addObserver(this);
@@ -10,7 +10,7 @@ index 17927de..b2d66b6 100644
      _contentFocusScope.addListener(_syncSidebarFocusWithContent);
  
      if (PlatformDetector.isDesktopOS()) {
-@@ -1030,14 +1031,7 @@ class _MainScreenState extends State<MainScreen>
+@@ -1053,14 +1054,7 @@ class _MainScreenState extends State<MainScreen>
      receiver.onTabSearch = () => _selectTab(NavigationTabId.search);
      receiver.onTabDownloads = () => _selectTab(NavigationTabId.downloads);
      receiver.onTabSettings = () => _selectTab(NavigationTabId.settings);
@@ -26,7 +26,7 @@ index 17927de..b2d66b6 100644
      receiver.onSearchAction = (query) {
        final trimmed = query?.trim() ?? '';
        final hasQuery = trimmed.isNotEmpty;
-@@ -1063,8 +1057,33 @@ class _MainScreenState extends State<MainScreen>
+@@ -1086,8 +1080,33 @@ class _MainScreenState extends State<MainScreen>
      }
    }
  
