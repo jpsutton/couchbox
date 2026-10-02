@@ -1,13 +1,14 @@
 # Maintainer: Jared Sutton <jpsutton@protonmail.com>
 #
 # Meta package for the couchbox appliance. It pulls in the Bigscreen session
-# and the Jellyfin clients, and ships the config that turns a plain Arch
-# install into the appliance: autologin, service presets, and home-screen tiles.
+# and the apps (Kodi, Plezy, YouTube), and ships the config that turns a plain
+# Arch install into the appliance: autologin, service presets, and home-screen
+# tiles.
 
 pkgname=couchbox-base
 pkgver=0.9.0
 pkgrel=1
-pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
+pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)
 license=(MIT)
 depends=(
