@@ -12,10 +12,10 @@
 
 pkgname=plezy-couchbox
 _pkgname=plezy
-pkgver=2.21.0
+pkgver=2.22.0
 pkgrel=1
 _flutter_ver=3.47.1
-pkgdesc="A modern Plex and Jellyfin client (with couchbox's remote and TV patches)"
+pkgdesc="A modern Plex, Jellyfin and Emby client (with couchbox's remote and TV patches)"
 provides=("plezy=$pkgver")
 conflicts=(plezy)
 arch=('x86_64')
@@ -35,11 +35,11 @@ source=(
 	"0001-home-key-returns-to-home-tab.patch"
 	"0002-linux-play-pause-key-toggles.patch"
 	"0003-desktop-display-scale.patch")
-sha256sums=('4149afebe063ee083d832bd6d6797f48009f44408f6e37968dfe559bd3bfb3a5'
+sha256sums=('ff000f3d8d088f10cb682cc33584280f7ba452221644e947f7865a6a862eaf5a'
             '9dfa1088e6401cbaf7a7e925dd6f73428968faa13781cedc621b84820b8245d6'
-            'dba8f5eef35376f89df55eea7d765af76c7d5285a4f100b382299e4ad45dd3f1'
-            '21e5ebc388c40bac3dfa7b2da88d53aa83825be5dbb32b95b9f721868105a48b'
-            'e6186e9fa78e56c4f8e8d1682c1375e9b77607d90b84893a3d1a085a2e7f7be8')
+            '1b7dab106684e082d6b385d19781fe7cefabe059a17c89fb8b9f0d342a6e9e66'
+            '9e3b416be0cd970744bab5f41253725dcedaae090593e33143483342cfca14f7'
+            'cbdb5d372eded427cc2479113a38b636f0869f6f0b4e9863bf596d54340741e5')
 
 prepare() {
 	cd $_pkgname

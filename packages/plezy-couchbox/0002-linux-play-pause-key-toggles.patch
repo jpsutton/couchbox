@@ -1,22 +1,5 @@
-From d593a3036ec3fe484baa2108a692d483f4f49cca Mon Sep 17 00:00:00 2001
-From: couchbox <noreply@example.invalid>
-Date: Tue, 29 Sep 2026 11:46:51 -0400
-Subject: [PATCH] fix(input): treat the Linux Play/Pause key as a toggle
-
-On Linux, XKB maps the Play/Pause key (evdev KEY_PLAYPAUSE) to the
-XF86AudioPlay keysym, so Flutter reports LogicalKeyboardKey.mediaPlay and
-the player treats it as a directed play: while playing, the key only
-flashes the play disc. The physical key is still mediaPlayPause, so use it
-to recover the toggle.
----
- lib/focus/transport_keys.dart                    | 8 +++++++-
- lib/screens/video_player_screen.dart             | 2 +-
- lib/services/music/music_hardware_transport.dart | 6 +++---
- lib/widgets/video_controls/parts/key_events.dart | 2 +-
- 4 files changed, 12 insertions(+), 6 deletions(-)
-
 diff --git a/lib/focus/transport_keys.dart b/lib/focus/transport_keys.dart
-index ee5442dca..5d453ad05 100644
+index ee5442d..5d453ad 100644
 --- a/lib/focus/transport_keys.dart
 +++ b/lib/focus/transport_keys.dart
 @@ -8,10 +8,16 @@ enum TransportCommand { play, pause, toggle }
@@ -38,10 +21,10 @@ index ee5442dca..5d453ad05 100644
    if (key == LogicalKeyboardKey.mediaPause) return TransportCommand.pause;
    if (key == LogicalKeyboardKey.mediaPlayPause) return TransportCommand.toggle;
 diff --git a/lib/screens/video_player_screen.dart b/lib/screens/video_player_screen.dart
-index 3526eccee..b92e4d5e9 100644
+index 876c0ec..5259d44 100644
 --- a/lib/screens/video_player_screen.dart
 +++ b/lib/screens/video_player_screen.dart
-@@ -2899,7 +2899,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
+@@ -2969,7 +2969,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
          // dispatch), and Apple TV delivers play/pause via its native bridge.
          // The chrome deliberately stays down; _remoteTransport announces the
          // accepted command with a centred transient disc instead (#1676).
@@ -51,7 +34,7 @@ index 3526eccee..b92e4d5e9 100644
            if (event is KeyDownEvent) {
              unawaited(_remoteTransport(transportCommand, source: 'Hardware media key'));
 diff --git a/lib/services/music/music_hardware_transport.dart b/lib/services/music/music_hardware_transport.dart
-index bad6b14c7..9e881415a 100644
+index bad6b14..9e88141 100644
 --- a/lib/services/music/music_hardware_transport.dart
 +++ b/lib/services/music/music_hardware_transport.dart
 @@ -68,7 +68,7 @@ class MusicHardwareTransportHandler {
@@ -75,7 +58,7 @@ index bad6b14c7..9e881415a 100644
        return switch (transport) {
          TransportCommand.play => _onPlay,
 diff --git a/lib/widgets/video_controls/parts/key_events.dart b/lib/widgets/video_controls/parts/key_events.dart
-index 6fe2628af..90d6f249e 100644
+index 1074dbb..3acd54f 100644
 --- a/lib/widgets/video_controls/parts/key_events.dart
 +++ b/lib/widgets/video_controls/parts/key_events.dart
 @@ -14,7 +14,7 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
@@ -87,6 +70,3 @@ index 6fe2628af..90d6f249e 100644
      if (hardware != null) return hardware;
  
      final physicalKey = event.physicalKey;
--- 
-2.55.0
-
