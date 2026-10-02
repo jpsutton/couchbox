@@ -3,7 +3,10 @@
 // stored in ~/.config/couchboxrc for the couchbox apps to read.
 //
 // Generic on purpose: the page (main.qml, built in as ui/main.qml) names each setting's group, key
-// and default, so adding a setting needs no C++.
+// and default, so adding a setting needs no C++. The video settings also call
+// couchbox-video-profile, which carries them into Plezy and Kodi.
+
+#include <QProcess>
 
 #include <KConfigGroup>
 #include <KPluginFactory>
@@ -32,6 +35,21 @@ public:
         KConfigGroup cg = m_config->group(group);
         cg.writeEntry(key, value);
         cg.sync();
+    }
+
+    // couchbox-video-profile (couchbox-base) writes the [Video] settings into
+    // Plezy and Kodi. apply returns at once: a running client gets them when it
+    // exits. probe re-detects the hardware and resets [Video] to its
+    // recommendations; it takes a moment (vainfo), and the page reloads after.
+    Q_INVOKABLE void applyVideo() const
+    {
+        QProcess::startDetached(QStringLiteral("couchbox-video-profile"), {QStringLiteral("apply")});
+    }
+
+    Q_INVOKABLE void probeVideo()
+    {
+        QProcess::execute(QStringLiteral("couchbox-video-profile"), {QStringLiteral("probe")});
+        m_config->reparseConfiguration();
     }
 
 private:
