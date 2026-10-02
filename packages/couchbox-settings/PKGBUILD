@@ -4,8 +4,8 @@
 # ~/.config/couchboxrc). Kept in this repo; no upstream.
 
 pkgname=couchbox-settings
-pkgver=1.0.0
-pkgrel=2
+pkgver=1.1.0
+pkgrel=1
 pkgdesc="couchbox options page for Plasma Bigscreen Settings"
 arch=(x86_64)
 license=(MIT)

@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""Video playback settings that depend on the graphics hardware.
+
+couchboxrc [Video] holds one setting per tweak, shown on the couchbox page in
+Bigscreen Settings:
+
+  PlezyScaling      quality | fast   mpv's scalers in Plezy. fast: bilinear,
+                                     no dithering (weak GPUs drop frames on
+                                     the default, even on 1:1 1080p)
+  TranscodeHEVC     true | false     ask the server to convert HEVC
+  TranscodeHEVC10   true | false     ... HEVC 10-bit (Jellyfin for Kodi only)
+  TranscodeAV1      true | false     ... AV1
+  TranscodeVP9      true | false     ... VP9 (Jellyfin for Kodi only)
+
+  couchbox-video-profile firstboot   probe, once per user (the user service)
+  couchbox-video-profile probe       detect the hardware, reset [Video] to the
+                                     recommended values, then apply
+  couchbox-video-profile apply       write [Video] into Plezy and Kodi's
+                                     Jellyfin add-ons
+
+The probe only picks defaults: nothing reapplies them at login, so a setting
+changed here or inside Plezy or Kodi stays. The clients rewrite their own
+settings files while they run, so apply writes to a running client once it
+exits (a background waiter), and to the others right away.
+"""
+import configparser
+import fcntl
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+HOME = os.path.expanduser("~")
+CONFIG = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "couchboxrc")
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local", "state")), "couchbox")
+PLEZY_PREFS = os.path.join(HOME, ".local", "share", "com.edde746.plezy", "shared_preferences.json")
+KODI_ADDON_DATA = os.path.join(HOME, ".kodi", "userdata", "addon_data")
+
+# Lines couchbox owns in Plezy's mpv.conf setting; anything else there is the
+# user's and stays.
+MPV_BEGIN = "# couchbox: fast scaling (couchbox page in Settings)"
+MPV_END = "# couchbox: end"
+MPV_FAST = [
+    "scale=bilinear",
+    "dscale=bilinear",
+    "cscale=bilinear",
+    "dither=no",
+    "correct-downscaling=no",
+    "linear-downscaling=no",
+    "sigmoid-upscaling=no",
+    "hdr-compute-peak=no",
+]
+
+# [Video] key -> (VA-API profile that decodes it, Plezy codec id,
+# Jellyfin for Kodi setting, JellyCon setting).
+CODECS = {
+    "TranscodeHEVC": ("VAProfileHEVCMain", "hevc", "transcode_h265", "force_transcode_h265"),
+    "TranscodeHEVC10": ("VAProfileHEVCMain10", None, "transcodeHi10P", None),
+    "TranscodeAV1": ("VAProfileAV1Profile0", "av1", "transcode_av1", "force_transcode_av1"),
+    "TranscodeVP9": ("VAProfileVP9Profile0", None, "transcode_vp9", None),
+}
+
+# Process names (comm) of each client, to tell whether it is running.
+CLIENTS = {"plezy": ["plezy"], "kodi": ["kodi.bin", "kodi"]}
+
+
+def log(msg):
+    print(f"couchbox-video-profile: {msg}", flush=True)
+
+
+def read_config():
+    cfg = configparser.ConfigParser(interpolation=None)
+    cfg.optionxform = str  # KConfig keys are case-sensitive
+    cfg.read(CONFIG)
+    return cfg
+
+
+def write_config(cfg):
+    os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
+    tmp = CONFIG + ".tmp"
+    with open(tmp, "w") as f:
+        cfg.write(f, space_around_delimiters=False)
+    os.replace(tmp, CONFIG)
+
+
+def decode_profiles():
+    """VA-API profiles with a decode (VLD) entrypoint; empty without VA-API."""
+    try:
+        out = subprocess.run(["vainfo", "--display", "drm"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+    return set(re.findall(r"(VAProfile\w+)\s*:\s*VAEntrypointVLD", out))
+
+
+def probe():
+    profiles = decode_profiles()
+    # The rule for a low-power GPU: no hardware HEVC decode. That is Bay
+    # Trail and other Atoms of its age, Intel before Skylake, older AMD, and
+    # anything without VA-API (VMs). Such GPUs also choke on mpv's default
+    # scalers (measured on a Bay Trail N2807: 25% of 1080p frames dropped).
+    low_power = "VAProfileHEVCMain" not in profiles
+    decodes = [name for name, prof in [("H.264", "VAProfileH264High"), ("HEVC", "VAProfileHEVCMain"),
+                                       ("HEVC 10-bit", "VAProfileHEVCMain10"), ("VP9", "VAProfileVP9Profile0"),
+                                       ("AV1", "VAProfileAV1Profile0")] if prof in profiles]
+    cfg = read_config()
+    if not cfg.has_section("Video"):
+        cfg.add_section("Video")
+    video = cfg["Video"]
+    video["PlezyScaling"] = "fast" if low_power else "quality"
+    # Capable GPUs keep today's behavior: the CPU handles what the GPU can't.
+    for key, (profile, *_rest) in CODECS.items():
+        video[key] = "true" if low_power and profile not in profiles else "false"
+    if not cfg.has_section("Hardware"):
+        cfg.add_section("Hardware")
+    cfg["Hardware"]["Decodes"] = ", ".join(decodes) or "none"
+    cfg["Hardware"]["LowPower"] = "true" if low_power else "false"
+    cfg["Hardware"]["Probed"] = time.strftime("%Y-%m-%d")
+    write_config(cfg)
+    log(f"hardware decodes: {cfg['Hardware']['Decodes']}; low-power GPU: {low_power}")
+
+
+def setting(cfg, key, fallback="false"):
+    return cfg.get("Video", key, fallback=fallback)
+
+
+def running(client):
+    uid = str(os.getuid())
+    names = CLIENTS[client]
+    for pid in filter(str.isdigit, os.listdir("/proc")):
+        try:
+            with open(f"/proc/{pid}/comm") as f:
+                comm = f.read().strip()
+            if comm in names and str(os.stat(f"/proc/{pid}").st_uid) == uid:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def apply_plezy(cfg):
+    try:
+        with open(PLEZY_PREFS) as f:
+            prefs = json.load(f)
+    except FileNotFoundError:
+        prefs = {}
+    # mpv.conf: replace couchbox's block, keep the user's lines.
+    text = prefs.get("mpv_config_text", "")
+    text = re.sub(rf"\n?{re.escape(MPV_BEGIN)}\n.*?{re.escape(MPV_END)}\n?", "\n", text, flags=re.S).strip("\n")
+    if setting(cfg, "PlezyScaling", "quality") == "fast":
+        block = "\n".join([MPV_BEGIN, *MPV_FAST, MPV_END])
+        text = f"{text}\n{block}" if text else block
+    if text:
+        prefs["mpv_config_text"] = text + "\n"
+    else:
+        prefs.pop("mpv_config_text", None)
+    # Codecs Plezy asks the server to transcode (Plezy 2.22 and later).
+    refused = [c for c in prefs.get("refused_video_codecs", []) if isinstance(c, str)]
+    for key, (_profile, plezy_id, *_rest) in CODECS.items():
+        if plezy_id is None:
+            continue
+        if setting(cfg, key) == "true":
+            if plezy_id not in refused:
+                refused.append(plezy_id)
+        elif plezy_id in refused:
+            refused.remove(plezy_id)
+    if refused:
+        prefs["refused_video_codecs"] = refused
+    else:
+        prefs.pop("refused_video_codecs", None)
+    os.makedirs(os.path.dirname(PLEZY_PREFS), exist_ok=True)
+    tmp = PLEZY_PREFS + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(prefs, f)
+    os.replace(tmp, PLEZY_PREFS)
+    log("Plezy updated")
+
+
+def write_kodi_addon(addon, values):
+    """Set <setting id=...> values in an add-on's user settings (version 2
+    format), creating the file if Kodi hasn't yet; Kodi fills in the rest."""
+    path = os.path.join(KODI_ADDON_DATA, addon, "settings.xml")
+    try:
+        tree = ET.parse(path)
+        root = tree.getroot()
+    except (FileNotFoundError, ET.ParseError):
+        root = ET.Element("settings", version="2")
+        tree = ET.ElementTree(root)
+    for sid, value in values.items():
+        node = root.find(f"setting[@id='{sid}']")
+        if node is None:
+            node = ET.SubElement(root, "setting", id=sid)
+        node.text = value
+        node.attrib.pop("default", None)  # "default" marks an untouched value
+    ET.indent(tree)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tree.write(path + ".tmp", encoding="utf-8", xml_declaration=False)
+    os.replace(path + ".tmp", path)
+
+
+def apply_kodi(cfg):
+    jellyfin, jellycon = {}, {}
+    for key, (_profile, _plezy, jf_id, jc_id) in CODECS.items():
+        value = setting(cfg, key)
+        jellyfin[jf_id] = value
+        if jc_id:
+            jellycon[jc_id] = value
+    write_kodi_addon("plugin.video.jellyfin", jellyfin)
+    write_kodi_addon("plugin.video.jellycon", jellycon)
+    log("Kodi's Jellyfin add-ons updated")
+
+
+APPLY = {"plezy": apply_plezy, "kodi": apply_kodi}
+
+
+def apply_after_exit(client):
+    """Wait for a running client to exit, then apply. One waiter per client:
+    a newer request finds the lock held and leaves it to the waiter, which
+    reads couchboxrc only once the client is gone."""
+    os.makedirs(STATE, exist_ok=True)
+    with open(os.path.join(STATE, f"apply-{client}.lock"), "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return
+        while running(client):
+            time.sleep(3)
+        APPLY[client](read_config())
+
+
+def apply():
+    cfg = read_config()
+    for client, func in APPLY.items():
+        if running(client):
+            log(f"{client} is running; applying when it exits")
+            # A unit of its own: the first-login service is a oneshot, and
+            # systemd kills what it leaves behind once it finishes. The fixed
+            # name keeps it to one waiter per client (a second start fails).
+            subprocess.run(["systemd-run", "--user", "--quiet", "--collect",
+                            f"--unit=couchbox-video-profile-{client}",
+                            os.path.abspath(sys.argv[0]), "apply-after-exit", client],
+                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            func(cfg)
+
+
+def firstboot():
+    stamp = os.path.join(STATE, "video-profile-probed")
+    if os.path.exists(stamp):
+        return
+    probe()
+    apply()
+    os.makedirs(STATE, exist_ok=True)
+    open(stamp, "w").close()
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "firstboot":
+        firstboot()
+    elif cmd == "probe":
+        probe()
+        apply()
+    elif cmd == "apply":
+        apply()
+    elif cmd == "apply-after-exit" and len(sys.argv) == 3 and sys.argv[2] in APPLY:
+        apply_after_exit(sys.argv[2])
+    else:
+        print("usage: couchbox-video-profile firstboot|probe|apply", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
