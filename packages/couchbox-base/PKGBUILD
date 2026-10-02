@@ -1,13 +1,14 @@
 # Maintainer: Jared Sutton <jpsutton@protonmail.com>
 #
 # Meta package for the couchbox appliance. It pulls in the Bigscreen session
-# and the Jellyfin clients, and ships the config that turns a plain Arch
-# install into the appliance: autologin, service presets, and home-screen tiles.
+# and the apps (Kodi, Plezy, YouTube), and ships the config that turns a plain
+# Arch install into the appliance: autologin, service presets, and home-screen
+# tiles.
 
 pkgname=couchbox-base
-pkgver=0.8.1
+pkgver=0.9.0
 pkgrel=1
-pkgdesc="Couchbox HTPC appliance: Plasma Bigscreen autologin session with Jellyfin client tiles"
+pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)
 license=(MIT)
 depends=(
@@ -17,6 +18,8 @@ depends=(
   networkmanager bluez bluez-utils libcec pipewire pipewire-pulse wireplumber
   # Power-saver profile while the screen sleeps (couchbox-power-profile)
   power-profiles-daemon
+  # couchbox-video-profile: vainfo for what the GPU decodes
+  python libva-utils
   zerotier-one
   # The remote: long-press Home (and IR once a blaster is fitted)
   fire-blaster
@@ -60,6 +63,8 @@ source=(
   couchbox-bt-agent.service
   couchbox-power-profile
   couchbox-power-profile.service
+  couchbox-video-profile
+  couchbox-video-profile.service
   90-couchbox-wifi-backup
   sysctl-couchbox-arp.conf
   kwinrc
@@ -74,7 +79,7 @@ source=(
   couchbox-wallpaper-rotation.js
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -90,6 +95,12 @@ package() {
   install -Dm644 couchbox-bt-agent.service "$pkgdir/usr/lib/systemd/system/couchbox-bt-agent.service"
   install -Dm755 couchbox-power-profile "$pkgdir/usr/bin/couchbox-power-profile"
   install -Dm644 couchbox-power-profile.service "$pkgdir/usr/lib/systemd/system/couchbox-power-profile.service"
+  # Video defaults for the hardware, picked once at the first login. Enabled for
+  # every user by the shipped wants symlink.
+  install -Dm755 couchbox-video-profile "$pkgdir/usr/bin/couchbox-video-profile"
+  install -Dm644 couchbox-video-profile.service "$pkgdir/usr/lib/systemd/user/couchbox-video-profile.service"
+  install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
+  ln -s ../couchbox-video-profile.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-video-profile.service"
   install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
   install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"

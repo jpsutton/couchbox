@@ -1,0 +1,12 @@
+[Unit]
+Description=couchbox: pick video playback defaults for this hardware (first login only)
+# The probe writes Plezy's and Kodi's settings, so run it before either starts.
+Before=graphical-session-pre.target
+ConditionPathExists=!%S/couchbox/video-profile-probed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/couchbox-video-profile firstboot
+
+[Install]
+WantedBy=default.target
