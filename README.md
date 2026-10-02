@@ -2,10 +2,10 @@
 
 A general-purpose HTPC operating system, based on Arch Linux. It boots
 straight into KDE Plasma Bigscreen, where each app is a tile on the home
-screen: Kodi, Plezy (a Plex and Jellyfin client) and YouTube's TV interface
-so far, with more to come. You switch between apps from the couch, and
-Bluetooth remotes control the box. A built-in ZeroTier client reaches a home
-media server from any network.
+screen: Kodi, Plezy (a Plex, Jellyfin and Emby client) and YouTube's TV
+interface so far, with more to come. You switch between apps from the couch,
+and Bluetooth remotes control the box. A built-in ZeroTier client reaches a
+home media server from any network.
 
 The build produces two installer ISOs: a full one that installs offline, and
 a small netinstall one that downloads everything during the install. You boot
@@ -22,7 +22,7 @@ both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 | Plasma Bigscreen session (6.7+) | `extra` |
 | SDDM autologin into Bigscreen, no lock screen | `couchbox-base` |
 | Kodi, with the Jellyfin add-ons `jellyfin-kodi` and `JellyCon` | `extra` and AUR |
-| Plezy (native Flutter Plex/Jellyfin client; TV mode and fullscreen preset), patched for the remote and TV | `plezy-couchbox` |
+| Plezy (native Flutter client for Plex, Jellyfin and Emby; TV mode and fullscreen preset), patched for the remote and TV | `plezy-couchbox` |
 | YouTube, TV interface (`youtube.com/tv` with a TV user agent; account picker, Link with TV code) | `couchbox-youtube` |
 | ZeroTier (`zerotier-one`, enabled at boot) | `extra` |
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
