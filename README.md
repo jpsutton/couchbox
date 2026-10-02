@@ -1,20 +1,19 @@
 # couchbox
 
-An Arch-based HTPC appliance for streaming from Jellyfin. It boots straight
-into KDE Plasma Bigscreen with each Jellyfin client pinned as a home-screen
-tile, so you can switch between clients from the couch. Bluetooth remotes
-control it. A built-in ZeroTier client reaches the home server from any
-network.
+A general-purpose HTPC operating system, based on Arch Linux. It boots
+straight into KDE Plasma Bigscreen, where each app is a tile on the home
+screen: Kodi, Plezy (a Plex and Jellyfin client) and YouTube's TV interface
+so far, with more to come. You switch between apps from the couch, and
+Bluetooth remotes control the box. A built-in ZeroTier client reaches a home
+media server from any network.
 
 The build produces two installer ISOs: a full one that installs offline, and
 a small netinstall one that downloads everything during the install. You boot
 either one, pick a disk, and get a finished box.
 
-**Status:** the ISO builds, and a QEMU/OVMF test passed on 2026-09-28. The
-unattended install (`couchbox-install --yes`) finished, and the installed
-system booted straight into Bigscreen with the Jellyfin and Kodi tiles
-pinned. Both tiles launched their client. Nothing has run on real hardware
-yet.
+**Status:** runs on an Intel NUC (Skylake, NUC6i5SYB), and installed from the
+netinstall ISO on a Gigabyte BRIX (Bay Trail Celeron N2807). Installs from
+both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 
 ## What's in the image
 
@@ -22,14 +21,14 @@ yet.
 |---|---|
 | Plasma Bigscreen session (6.7+) | `extra` |
 | SDDM autologin into Bigscreen, no lock screen | `couchbox-base` |
-| Kodi with `jellyfin-kodi` and `JellyCon` | `extra` and AUR |
+| Kodi, with the Jellyfin add-ons `jellyfin-kodi` and `JellyCon` | `extra` and AUR |
 | Plezy (native Flutter Plex/Jellyfin client; TV mode and fullscreen preset), patched for the remote and TV | `plezy-couchbox` |
 | YouTube, TV interface (`youtube.com/tv` with a TV user agent; account picker, Link with TV code) | `couchbox-youtube` |
 | ZeroTier (`zerotier-one`, enabled at boot) | `extra` |
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
 | VA-API driver and microcode, picked by CPU vendor | installer |
 | HDMI off after 10 idle minutes, never system suspend | `couchbox-base` (PowerDevil) |
-| Home screen shows only the tiles, Konsole and Settings | `couchbox-base` (`/etc/couchbox/visible-apps`) |
+| Home screen shows only the app tiles, Konsole and Settings | `couchbox-base` (`/etc/couchbox/visible-apps`) |
 | Bluetooth pairing agent that accepts and trusts remotes | `couchbox-base` (`couchbox-bt-agent`) |
 | Short Home/Menu go to the app; long Home shows the Bigscreen launcher, long Menu the home overlay (Tasks page: hold OK to close an app); OK and Menu remapped for apps | `fire-blaster` (`[hold]`, `[remap]`), `couchbox-base` (KWin script, shortcut defaults) |
 | fire-blaster (remote grab, long-press keys; IR once a blaster is fitted) | `packages/fire-blaster`, built from `../fire-blaster` |
@@ -168,20 +167,22 @@ fallback loader, `\EFI\BOOT\BOOTX64.EFI`, which the installer also writes.
 ## How the tiles work
 
 The home screen shows one row, Applications, which Bigscreen sorts by name. It
-lists only the apps in `/etc/couchbox/visible-apps`: the Jellyfin, Kodi and
-Plezy clients, Konsole and Bigscreen Settings. couchbox ships no Bigscreen
-favorites, so the Favorites row, which appears only when it has entries, stays
-hidden. The Recent row appears only when app-usage history exists, so
+lists only the apps in `/etc/couchbox/visible-apps`: Kodi, Plezy, YouTube,
+Konsole and Bigscreen Settings. couchbox ships no Bigscreen favorites, so the
+Favorites row, which appears only when it has entries, stays hidden. The
+Recent row appears only when app-usage history exists, so
 `/etc/xdg/kactivitymanagerd-pluginsrc` turns that history off
 (`what-to-remember=2`).
 
-Each client's tile overrides the app's own `.desktop` file under the same file
-ID, in `~/.local/share/applications` (copied from `/etc/skel`). The ID has to
-match the window's app ID: Bigscreen raises a running app only when they
-match, and otherwise launches it again. The override is also where a tile
-can swap in its own launcher or arguments (Kodi's audio backend). To add a client, add
-a `<app id>.desktop` file, list it in `_tiles` in the PKGBUILD, and add the
-ID to `visible-apps`.
+A tile that needs its own launcher or arguments overrides the app's `.desktop`
+file under the same file ID, in `~/.local/share/applications` (copied from
+`/etc/skel`). The ID has to match the window's app ID: Bigscreen raises a
+running app only when they match, and otherwise launches it again. Kodi's tile
+does this for its audio backend, and Plezy's to set the window class
+(`StartupWMClass`) Bigscreen matches; YouTube ships its own `.desktop` file in
+`couchbox-youtube`. To add an app, add its desktop file ID to `visible-apps`;
+if it needs an override, add a `<app id>.desktop` file to `couchbox-base` and
+list it in `_tiles` in the PKGBUILD.
 
 ## Upstream bugs
 
@@ -204,7 +205,7 @@ mostly Plasma Bigscreen, along with the couchbox workaround for each.
   through JSON-RPC.
 - **Verify idle display-off on hardware.** Check that idle Kodi menus don't
   keep the inhibit, which would stop the TV from sleeping. Check that paused
-  Jellyfin playback releases it. Optionally, send CEC standby to the TV on
+  playback releases it. Optionally, send CEC standby to the TV on
   idle, for TVs that ignore "no signal". That needs a CEC adapter and has to
   share it with the Bigscreen input handler.
 - **fire-blaster IR.** fire-blaster is packaged and handles the long Home
@@ -214,11 +215,9 @@ mostly Plasma Bigscreen, along with the couchbox workaround for each.
   on-screen setup overlay.
 - **Hotel captive portals.** Test the NetworkManager captive-portal flow
   inside Bigscreen, which has no normal browser window.
-- **Updates.** Host `out/repo` somewhere so installed boxes get AUR rebuilds
-  without a reinstall. Sign the packages when that happens.
 - **aarch64.** archiso can build UEFI AArch64 ISOs. That covers boards with
   EDK2 firmware, such as RK3588 boards, but not a stock Raspberry Pi 5.
   Needs `iso/packages.aarch64` and a kernel choice in the installer.
-- **More clients.** `jellyfin-mpv-shim` (in `extra`) as a user service, so a
-  phone can cast to the box. Also the independent fork of the Jellyfin
-  desktop rewrite, once it's packaged.
+- **More apps.** Candidates: `jellyfin-mpv-shim` (in `extra`) as a user
+  service, so a phone can cast to the box, and the independent fork of the
+  Jellyfin desktop rewrite, once it's packaged.
