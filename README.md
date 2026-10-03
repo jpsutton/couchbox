@@ -28,6 +28,7 @@ both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
 | HDMI/DisplayPort audio as the default output when present (a default you pick still wins) | `couchbox-base` (WirePlumber rule) |
 | VA-API driver and microcode, picked by CPU vendor | installer |
+| Time zone from the network's location, at install and every login (see Time zone below) | installer, `couchbox-base` (`couchbox-timezone`) |
 | HDMI off after 10 idle minutes, never system suspend | `couchbox-base` (PowerDevil) |
 | Home screen shows only the app tiles, Konsole and Settings | `couchbox-base` (`/etc/couchbox/visible-apps`) |
 | Bluetooth pairing agent that accepts and trusts remotes | `couchbox-base` (`couchbox-bt-agent`) |
@@ -209,6 +210,27 @@ own defaults. Nothing resets the settings later, so changes made on the page
 or inside Plezy or Kodi stay; "Detect hardware again" on the page re-runs the
 probe. A change on the page reaches a client that is running once it exits,
 because both rewrite their settings files while they run.
+
+## Time zone
+
+The installer looks the time zone up from the network's public IP address
+(GeoIP: `ipinfo.io`, then `ip-api.com`) and offers it; decline it to pick a
+region and city. Offline, it asks for a zone (or uses UTC with `--yes`).
+`--timezone ZONE` sets one without asking.
+
+After that, `couchbox-timezone` (a user service in `couchbox-base`) repeats
+the lookup at every login, so a box that moves follows along. It keeps trying
+for several minutes while the network comes up. "Set the time zone
+automatically" on the couchbox page in Bigscreen Settings (`[Time] Automatic`
+in couchboxrc) turns it off. A zone picked by hand stays put: one picked in
+the installer (or with `--timezone`) writes `Automatic=false` to
+`/etc/xdg/couchboxrc`, and one changed elsewhere (Bigscreen's own Timezone
+picker under System, Adjust date and time) switches it off at the next login.
+
+The lookup sends the box's public address to those services, as any web
+request does; turn automatic off if that matters. A polkit rule in
+`couchbox-base` lets `wheel` users (`htpc`) change the time zone without a
+password (not the clock itself).
 
 ## Upstream bugs
 

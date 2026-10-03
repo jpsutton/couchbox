@@ -4,6 +4,10 @@
 #   couchbox-install                          menus: pick the disk, set a password
 #   couchbox-install [--yes] [--hostname NAME] [--timezone ZONE] DISK
 #
+# The time zone comes from a GeoIP lookup of the network's public address
+# (UTC when offline), and couchbox keeps it updated at each login. Picking a
+# zone by hand, in the menu or with --timezone, turns the updates off.
+#
 # Layout: GPT, 1 GiB ESP at /boot (systemd-boot), ext4 root on the rest.
 # The full ISO installs from its offline repo, so no network is needed. The
 # netinstall ISO has no offline repo: it downloads from Arch's mirrors and the
@@ -11,7 +15,8 @@
 set -euo pipefail
 
 hostname=couchbox
-timezone=UTC
+timezone=''
+timezone_automatic=1
 user=htpc
 assume_yes=0
 couchbox_repo_url=https://github.com/jpsutton/couchbox/releases/latest/download
@@ -23,11 +28,44 @@ target_list=/etc/couchbox/target-packages
 # Set by wifi_connect, so the installed system joins the same network.
 wifi_ssid='' wifi_psk=''
 
-usage() { sed -n '2,7s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
+usage() { sed -n '2,11s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
 die() { echo "couchbox-install: $*" >&2; exit 1; }
 
 # whiptail writes the choice to stderr; swap it onto stdout for capture.
 tui() { whiptail --title "couchbox installer" "$@" 3>&1 1>&2 2>&3; }
+
+# detect_timezone: the zone for the network's public address, from GeoIP.
+# The same lookup as couchbox-timezone on the installed system.
+detect_timezone() {
+  local url zone
+  for url in https://ipinfo.io/timezone 'http://ip-api.com/line?fields=timezone'; do
+    zone=$(curl -sf --max-time 8 "$url" | head -n1 | tr -d '[:space:]') || continue
+    [[ $zone =~ ^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+)*$ && -f /usr/share/zoneinfo/$zone ]] || continue
+    printf '%s\n' "$zone"
+    return 0
+  done
+  return 1
+}
+
+# pick_timezone <text>: region, then city. Prints the zone.
+pick_timezone() {
+  local region items=() zone
+  while true; do
+    items=(UTC "Coordinated Universal Time")
+    for region in Africa America Antarctica Asia Atlantic Australia Europe Indian Pacific; do
+      items+=("$region" "")
+    done
+    region=$(tui --menu "$1" 20 70 10 "${items[@]}") || return 1
+    [[ $region != UTC ]] || { echo UTC; return 0; }
+    items=()
+    while read -r zone; do
+      items+=("${zone#"$region"/}" "")
+    done < <(timedatectl list-timezones | grep "^$region/")
+    zone=$(tui --menu "Time zone in $region" 20 70 12 "${items[@]}") || continue
+    echo "$region/$zone"
+    return 0
+  done
+}
 
 # The disk(s) the installer booted from, so they are never offered. Found by
 # the ISO's UUID on the kernel command line, not by its mount: archiso copies a
@@ -168,7 +206,7 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --yes) assume_yes=1 ;;
     --hostname) hostname=${2:?}; shift ;;
-    --timezone) timezone=${2:?}; shift ;;
+    --timezone) timezone=${2:?} timezone_automatic=0; shift ;;
     -h|--help) usage ;;
     -*) usage 1 ;;
     *) [[ -z ${disk:-} ]] || usage 1; disk=$1 ;;
@@ -186,7 +224,7 @@ fi
 [[ $EUID -eq 0 ]] || die "run as root"
 [[ $(uname -m) == x86_64 ]] || die "only x86_64 is supported so far"
 [[ -d /sys/firmware/efi ]] || die "boot the installer in UEFI mode"
-[[ -e /usr/share/zoneinfo/$timezone ]] || die "unknown timezone: $timezone"
+[[ -z $timezone || -f /usr/share/zoneinfo/$timezone ]] || die "unknown timezone: $timezone"
 
 # The netinstall ISO has no offline repo, so check the network before
 # touching a disk.
@@ -212,6 +250,25 @@ if [[ $assume_yes -eq 0 ]]; then
   tui --defaultno --yesno "Erase ALL data on $disk?\n\n$(describe "$disk")\n\nThis cannot be undone." 12 64 ||
     die "cancelled; nothing was changed"
 fi
+
+if [[ -z $timezone ]]; then
+  echo "==> Looking up the time zone"
+  detected=$(detect_timezone) || detected=''
+  if [[ $interactive -eq 0 ]]; then
+    timezone=${detected:-UTC}
+  elif [[ -n $detected ]] &&
+    tui --yesno "Time zone: $detected\n\nFound from this network's location. couchbox keeps it up to date when the box moves.\n\nUse it?" 12 64; then
+    timezone=$detected
+  elif [[ -n $detected ]]; then
+    # Declined: a zone picked by hand stays put.
+    timezone=$(pick_timezone "Pick the time zone.\n\ncouchbox won't change it; turn on automatic time zone on the couchbox page in Settings to have it follow the network.") || timezone=$detected
+    [[ $timezone == "$detected" ]] || timezone_automatic=0
+  else
+    # Offline: the pick only lasts until the box is online and looks it up.
+    timezone=$(pick_timezone "Pick the time zone.\n\nNo internet connection to detect it. couchbox sets it from the network's location once the box is online.") || timezone=UTC
+  fi
+fi
+echo "==> Time zone: $timezone ($([[ $timezone_automatic -eq 1 ]] && echo automatic || echo fixed))"
 
 # packages <set>: one set from target-packages (that file says why each is there).
 packages() { sed -n "s/^$1: *//p" "$target_list"; }
@@ -309,6 +366,13 @@ cat >> /mnt/etc/pacman.conf <<EOF
 SigLevel = Required
 Server = $couchbox_repo_url
 EOF
+
+# A zone picked by hand: couchbox-timezone leaves it alone. In /etc/xdg so it
+# is the default for every user's couchboxrc.
+if [[ $timezone_automatic -eq 0 ]]; then
+  mkdir -p /mnt/etc/xdg
+  printf '[Time]\nAutomatic=false\n' > /mnt/etc/xdg/couchboxrc
+fi
 
 # A Wi-Fi network joined from the installer: give NetworkManager on the
 # installed system the same one, so the box is online after the first boot.

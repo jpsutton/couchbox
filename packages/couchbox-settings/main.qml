@@ -33,6 +33,21 @@ Bigscreen.ScrollablePage {
         KeyNavigation.left: root.KeyNavigation.left
         spacing: 0
 
+        // Up and Down move between the settings. Without these links the keys
+        // fall through to the scroll view, which scrolls the page instead.
+        // Set here because the Repeater's delegates only exist once it has run.
+        Component.onCompleted: {
+            const chain = [youtubeCodecs, plezyScaling];
+            for (let i = 0; i < transcode.count; i++) {
+                chain.push(transcode.itemAt(i));
+            }
+            chain.push(detectHardware, automaticTimeZone);
+            for (let i = 0; i + 1 < chain.length; i++) {
+                chain[i].KeyNavigation.down = chain[i + 1];
+                chain[i + 1].KeyNavigation.up = chain[i];
+            }
+        }
+
         QQC2.Label {
             text: "YouTube"
             font.pixelSize: Bigscreen.Units.headingFontPixelSize
@@ -185,6 +200,7 @@ Bigscreen.ScrollablePage {
         }
 
         Bigscreen.ButtonDelegate {
+            id: detectHardware
             Layout.fillWidth: true
             Layout.bottomMargin: Kirigami.Units.gridUnit
 
@@ -199,6 +215,46 @@ Bigscreen.ScrollablePage {
                     transcode.itemAt(i).refresh();
                 }
             }
+        }
+
+        QQC2.Label {
+            text: "Time"
+            font.pixelSize: Bigscreen.Units.headingFontPixelSize
+
+            Layout.topMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+        }
+
+        // [Time] Automatic in couchboxrc, read by couchbox-timezone at login.
+        // A zone set by hand elsewhere switches it off (couchbox-timezone).
+        Bigscreen.SwitchDelegate {
+            id: automaticTimeZone
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            property string status: ""
+
+            text: "Set the time zone automatically"
+            description: kcm.timeZone() + status
+
+            Component.onCompleted: checked = kcm.value("Time", "Automatic", "true") !== "false"
+            onToggled: {
+                kcm.setValue("Time", "Automatic", checked ? "true" : "false");
+                status = checked && !kcm.updateTimeZone() ? " (offline: updates once online)" : "";
+                // timeZone() isn't a property; re-evaluate the binding.
+                description = Qt.binding(() => kcm.timeZone() + status);
+            }
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+            wrapMode: Text.WordWrap
+            opacity: 0.7
+            text: "Finds the time zone from this network's location (ipinfo.io) each time couchbox starts. "
+                + "To pick one yourself, use Timezone under System, Adjust date and time; "
+                + "that switches this off."
         }
     }
 }

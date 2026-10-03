@@ -1,0 +1,10 @@
+// couchbox: wheel users (htpc) set the time zone without a password, so
+// couchbox-timezone and the Settings pages can change it. No local/active
+// check: couchbox-timezone runs as a systemd user service, outside the login
+// session. Only the time zone; setting the clock still needs authentication.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.timedate1.set-timezone" &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});
