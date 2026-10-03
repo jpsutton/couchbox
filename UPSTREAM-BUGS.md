@@ -35,6 +35,7 @@ Last updated: 2026-10-03
 | 21 | Random segfault starting Python add-ons (thread-state race in CPythonInvoker) | kodi 21.3-12, python 3.14.7 | Medium | None yet; relaunch | Known upstream ([xbmc#27025](https://github.com/xbmc/xbmc/issues/27025)); fixed in v22 only |
 | 22 | Remote Back does not close the time zone, time and date pickers | plasma-bigscreen 6.7.5 and master | Low | None yet; use the on-screen Back button. couchbox sets the time zone automatically | Not filed |
 | 23 | Stop key does nothing in the video player | plezy 2.22.0 | Low | Patch `packages/plezy-couchbox/0004-media-stop-key.patch` (in `plezy-couchbox`); fire-blaster `[remap]` `KEY_STOP` to `KEY_STOPCD` | Not filed |
+| 24 | Plasma 5-to-6 shortcut cleanup runs on new accounts and deletes Bigscreen's shortcuts | plasma-workspace 6.7.5, plasma-bigscreen 6.7.5 | Medium | `/etc/skel/.config/kconf_updaterc` marks the script done | Not filed |
 
 ## 1. Home and Menu are bound globally, so apps never get those keys
 
@@ -48,9 +49,8 @@ and Kodi's or Jellyfin's Menu key never fire.
   `Qt::Key_Settings` and `Meta+O`.
 - **Correction:** this entry first said the shortcuts never register. On
   2026-09-28 the plasmashell component listed none of them, but by 2026-09-29
-  all four were registered and active. The likely cause is that couchbox's own
-  KWin script held plain Home Page at the time, and plasmashell's registration
-  succeeded once it was released. Not confirmed.
+  all four were registered and active. Cause found 2026-10-03: bug 24, a
+  Plasma migration script that deletes them on a new account's first login.
 - **Suggestion:** give TV apps a way to handle Home and Menu themselves, for
   example system actions on a long press only, or an opt-out per app.
 - **couchbox workaround:** `/etc/xdg/kglobalshortcutsrc` sets Bigscreen's
@@ -533,6 +533,34 @@ on the media Stop key.
   `feat/media-stop-key` on the fork, written against upstream `main`;
   `flutter analyze` and the full test suite pass.
 - **Status:** not filed; no upstream PR yet.
+
+## 24. Plasma's 5-to-6 shortcut cleanup deletes Bigscreen's shortcuts
+
+On a new couchbox install, a long Menu (Meta+O) did nothing on the first
+boot: the home overlay shortcut was not registered. After the next
+plasmashell start all four Bigscreen shortcuts were back, but with
+Bigscreen's own defaults (plain Home Page and Menu), not the `none` that
+`/etc/xdg/kglobalshortcutsrc` sets, so the apps lost short Home and Menu.
+
+- **Where:** plasma-workspace `shell/kconf_update/plasma6.0-remove-old-shortcuts.cpp`.
+  It is meant for accounts upgraded from Plasma 5, but kconf_update runs
+  every script a user has not run, so it also runs on a brand-new account's
+  first login. It deletes every `[plasmashell]` action in
+  `kglobalshortcutsrc` outside a fixed allowlist, through kglobalaccel. It
+  reads the config with the `/etc/xdg` cascade, and the allowlist does not
+  know Bigscreen's actions (Toggle Bigscreen Home Screen, Tasks Overview,
+  Settings, Home Overlay). Its log on the M715q, at login:
+  `plasma6.0-remove-old-shortcuts[932]: "Toggle Bigscreen Home Overlay"`,
+  and the same for the other three. Deleting them also drops the saved
+  `none` assignments, so plasmashell registers them again at its next start
+  with the defaults from `shortcuts.cpp`.
+- **Fix:** skip the cleanup on accounts with no Plasma 5 settings, or add
+  Bigscreen's actions to the allowlist (or give them their own component).
+- **couchbox workaround:** couchbox-base installs
+  `/etc/skel/.config/kconf_updaterc` with the script marked done, so new
+  accounts never run it (checked: kconf_update skips a script listed in
+  `done`). An account that already ran it gets the two `none` assignments
+  back with kglobalaccel's `setForeignShortcutKeys`, as in bug 1.
 
 ## Plezy pull requests
 
