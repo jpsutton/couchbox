@@ -185,6 +185,64 @@ does this for its audio backend, and Plezy's to set the window class
 if it needs an override, add a `<app id>.desktop` file to `couchbox-base` and
 list it in `_tiles` in the PKGBUILD.
 
+### On an existing Arch install
+
+Every couchbox package, including the AUR ones it uses (the Kodi add-ons),
+is in the couchbox repo, so an Arch system with a bootloader and a network
+connection can become a couchbox box without the ISO. couchbox-base takes
+over the machine: it logs `htpc` straight into Bigscreen with no lock
+screen, ships system-wide Plasma defaults in `/etc/xdg`, and uses
+NetworkManager and SDDM. Use a machine meant to be the HTPC, not a desktop.
+
+1. Trust the couchbox signing key:
+
+   ```
+   curl -sL https://raw.githubusercontent.com/jpsutton/couchbox/release/packages/couchbox-keyring/couchbox.gpg | sudo pacman-key --add -
+   sudo pacman-key --lsign-key 30DF04A7B6501BD317ADD964250A71E231E76DE0
+   ```
+
+2. Add the repo to `/etc/pacman.conf`, after Arch's repos (see Releases
+   below):
+
+   ```
+   [couchbox]
+   SigLevel = Required
+   Server = https://github.com/jpsutton/couchbox/releases/latest/download
+   ```
+
+3. Install couchbox, plus the graphics drivers and microcode for the CPU
+   (the installer's lists are in `iso/target-packages`):
+
+   ```
+   sudo pacman -Syu couchbox-base
+   sudo pacman -S --needed intel-ucode intel-media-driver libva-intel-driver vulkan-intel  # Intel
+   sudo pacman -S --needed amd-ucode vulkan-radeon                                         # AMD
+   ```
+
+   Regenerate the boot entries if the bootloader needs to load the new
+   microcode.
+
+4. Create the `htpc` user after couchbox-base is installed, so it gets the
+   files from `/etc/skel` (app tiles, Plezy and Kodi defaults). An existing
+   `htpc` account doesn't get them; copy them from `/etc/skel` by hand.
+
+   ```
+   sudo useradd -m -G wheel,input,uucp htpc
+   sudo passwd htpc  # optional: for sudo and SSH; autologin needs none
+   ```
+
+5. Turn off any other display manager or network service (for example
+   `gdm`, `systemd-networkd`, `iwd`), then enable couchbox's services, the
+   same preset the installer applies:
+
+   ```
+   sudo systemctl preset $(awk '$1 == "enable" { print $2 }' /usr/lib/systemd/system-preset/80-couchbox.preset)
+   ```
+
+6. Reboot. SDDM logs `htpc` into Bigscreen.
+
+Updates come with `pacman -Syu`, the same as on an ISO install.
+
 ## Video settings for the hardware
 
 Older and low-power graphics need lighter playback settings. On a Bay Trail
