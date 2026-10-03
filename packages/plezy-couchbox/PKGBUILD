@@ -13,7 +13,7 @@
 pkgname=plezy-couchbox
 _pkgname=plezy
 pkgver=2.22.0
-pkgrel=1
+pkgrel=2
 _flutter_ver=3.47.1
 pkgdesc="A modern Plex, Jellyfin and Emby client (with couchbox's remote and TV patches)"
 provides=("plezy=$pkgver")
@@ -34,12 +34,14 @@ source=(
 	"set-flutter-paths.patch"
 	"0001-home-key-returns-to-home-tab.patch"
 	"0002-linux-play-pause-key-toggles.patch"
-	"0003-desktop-display-scale.patch")
+	"0003-desktop-display-scale.patch"
+	"0004-media-stop-key.patch")
 sha256sums=('ff000f3d8d088f10cb682cc33584280f7ba452221644e947f7865a6a862eaf5a'
             '9dfa1088e6401cbaf7a7e925dd6f73428968faa13781cedc621b84820b8245d6'
             '1b7dab106684e082d6b385d19781fe7cefabe059a17c89fb8b9f0d342a6e9e66'
             '9e3b416be0cd970744bab5f41253725dcedaae090593e33143483342cfca14f7'
-            'cbdb5d372eded427cc2479113a38b636f0869f6f0b4e9863bf596d54340741e5')
+            'cbdb5d372eded427cc2479113a38b636f0869f6f0b4e9863bf596d54340741e5'
+            '04ab83296293aed5a33cbd3245181afc09e5174be3c85284ed397103f96f6999')
 
 prepare() {
 	cd $_pkgname
@@ -52,6 +54,8 @@ prepare() {
 	patch -Np1 -i "$srcdir/0002-linux-play-pause-key-toggles.patch"
 	# couchbox: Display Scale setting on desktop (UI too small on a TV)
 	patch -Np1 -i "$srcdir/0003-desktop-display-scale.patch"
+	# couchbox: media Stop key leaves the video player (after 0002: same files)
+	patch -Np1 -i "$srcdir/0004-media-stop-key.patch"
 
 	export FVM_CACHE_PATH="$srcdir/fvm"
 	fvm install $_flutter_ver

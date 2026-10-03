@@ -34,6 +34,7 @@ Last updated: 2026-10-03
 | 20 | Card labels use fixed font sizes; no text size setting | plezy 2.21.0 | Low | Display Scale 1.75x (bug 19) instead; Text Size patch dropped | Not filed |
 | 21 | Random segfault starting Python add-ons (thread-state race in CPythonInvoker) | kodi 21.3-12, python 3.14.7 | Medium | None yet; relaunch | Known upstream ([xbmc#27025](https://github.com/xbmc/xbmc/issues/27025)); fixed in v22 only |
 | 22 | Remote Back does not close the time zone, time and date pickers | plasma-bigscreen 6.7.5 and master | Low | None yet; use the on-screen Back button. couchbox sets the time zone automatically | Not filed |
+| 23 | Stop key does nothing in the video player | plezy 2.22.0 | Low | Patch `packages/plezy-couchbox/0004-media-stop-key.patch` (in `plezy-couchbox`); fire-blaster `[remap]` `KEY_STOP` to `KEY_STOPCD` | Not filed |
 
 ## 1. Home and Menu are bound globally, so apps never get those keys
 
@@ -512,11 +513,33 @@ Back button closes the picker.
 - **couchbox workaround:** none yet. The time zone picker is rarely needed:
   couchbox sets the zone from the network at install and at login.
 
+## 23. Plezy: Stop key does nothing in the video player
+
+The remote's Stop key does nothing while a video plays. Plezy's companion
+remote has a Stop command, which leaves the player, but no key handler acts
+on the media Stop key.
+
+- **Two parts:** the Media Center remote sends evdev `KEY_STOP`, which XKB
+  maps to `Cancel`, not a media key. fire-blaster remaps it to `KEY_STOPCD`
+  (`XF86AudioStop`, Flutter's `LogicalKeyboardKey.mediaStop`). Plezy then
+  still ignores `mediaStop` in all three key paths: the controls' focus
+  handler and the desktop global handler
+  (`lib/widgets/video_controls/parts/key_events.dart`), and the screen's
+  TV navigation handler (`lib/screens/video_player_screen.dart`).
+- **Patch:** `packages/plezy-couchbox/0004-media-stop-key.patch` (against
+  tag 2.22.0 plus patches 0001-0003; it touches files 0002 also changes).
+  Stop leaves the player the way Back does (`_handleBackButton`, the same
+  as the companion remote's `onStop`), on key down only. Branch
+  `feat/media-stop-key` on the fork, written against upstream `main`;
+  `flutter analyze` and the full test suite pass.
+- **Status:** not filed; no upstream PR yet.
+
 ## Plezy pull requests
 
 Three separate PRs against https://github.com/edde746/plezy, one per patch,
 so each can be reviewed on its own. The patches are diffs
-against tag 2.22.0 and apply in any order (they touch different files).
+against tag 2.22.0 and apply in any order (they touch different files),
+except patch 0004 (bug 23), which applies after 0002.
 
 - **couchbox build:** `packages/plezy-couchbox`, Arch's `plezy` PKGBUILD
   with the three patches in `prepare()`, built into the couchbox repo. It

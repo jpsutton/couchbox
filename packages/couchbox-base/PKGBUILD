@@ -6,7 +6,7 @@
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.10.0
+pkgver=0.10.1
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)

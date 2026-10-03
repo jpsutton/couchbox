@@ -1,0 +1,152 @@
+From 2975a51987c72598c51b844761e68e61533398c0 Mon Sep 17 00:00:00 2001
+From: Jared Sutton <jpsutton@protonmail.com>
+Date: Sat, 3 Oct 2026 14:34:59 -0400
+Subject: [PATCH] feat(input): media Stop key leaves the video player
+
+The Stop key on a media remote (XF86AudioStop, LogicalKeyboardKey.mediaStop)
+did nothing in the player. It now leaves the player the way Back does, the
+same as the companion remote's Stop command, in the controls' focus handler,
+the desktop global handler and the screen's TV navigation handler.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UovUvXbrY8oMLahfv9PMft
+---
+ lib/focus/transport_keys.dart                  |  5 +++++
+ lib/screens/video_player_screen.dart           |  6 ++++++
+ .../video_controls/parts/key_events.dart       | 16 ++++++++++++++++
+ test/focus/media_stop_key_test.dart            | 12 ++++++++++++
+ ...video_controls_transient_feedback_test.dart | 18 ++++++++++++++++++
+ 5 files changed, 57 insertions(+)
+ create mode 100644 test/focus/media_stop_key_test.dart
+
+diff --git a/lib/focus/transport_keys.dart b/lib/focus/transport_keys.dart
+index 5d453ad05..5ae3e8de2 100644
+--- a/lib/focus/transport_keys.dart
++++ b/lib/focus/transport_keys.dart
+@@ -24,6 +24,11 @@ TransportCommand? classifyTransportKey(LogicalKeyboardKey key, [PhysicalKeyboard
+   return null;
+ }
+ 
++/// Whether a key is the hardware Stop key. The video player has no "stopped
++/// but still on screen" state, so Stop leaves the player, as the companion
++/// remote's Stop command already does.
++bool isMediaStopKey(LogicalKeyboardKey key) => key == LogicalKeyboardKey.mediaStop;
++
+ /// Which way a hardware seek or track key points.
+ enum MediaSeekDirection { forward, backward }
+ 
+diff --git a/lib/screens/video_player_screen.dart b/lib/screens/video_player_screen.dart
+index 5259d4473..212025be7 100644
+--- a/lib/screens/video_player_screen.dart
++++ b/lib/screens/video_player_screen.dart
+@@ -2976,6 +2976,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
+           }
+           return KeyEventResult.handled; // consume down, repeat, and up
+         }
++        // The Stop key leaves the player (as the companion remote's Stop
++        // does), with the same ownership and gating as the transport keys.
++        if (videoPlayerNavigationPreference() && !PlatformDetector.isAppleTV() && isMediaStopKey(event.logicalKey)) {
++          if (event is KeyDownEvent) unawaited(_handleBackButton());
++          return KeyEventResult.handled; // consume down, repeat, and up
++        }
+         // The skip keys need the same ownership, and unconditionally: no
+         // global handler and no native bridge ever acts on them, so a gate
+         // here would only decide which platform leaks. Reached whenever the
+diff --git a/lib/widgets/video_controls/parts/key_events.dart b/lib/widgets/video_controls/parts/key_events.dart
+index 3acd54f79..c16a48411 100644
+--- a/lib/widgets/video_controls/parts/key_events.dart
++++ b/lib/widgets/video_controls/parts/key_events.dart
+@@ -193,6 +193,12 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
+       return true; // Event handled, stop propagation
+     }
+ 
++    // The Stop key leaves the player, like the companion remote's Stop.
++    if (event is KeyDownEvent && isMediaStopKey(event.logicalKey) && widget.onBack != null) {
++      widget.onBack!();
++      return true;
++    }
++
+     // Fallback: handle all other shortcuts when focus has drifted away
+     // (e.g. after controls auto-hide). The !hasFocus guard prevents
+     // double-handling when the Focus onKeyEvent already processes the event.
+@@ -288,6 +294,16 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
+       return KeyEventResult.handled;
+     }
+ 
++    // The Stop key leaves the player, like the companion remote's Stop. Same
++    // split as the transport keys: acted on here on TV/mobile, by the global
++    // handler on desktop, and consumed either way.
++    if (isMediaStopKey(key)) {
++      if ((videoPlayerNavigationPreference() || isMobile) && event is KeyDownEvent) {
++        widget.onBack?.call();
++      }
++      return KeyEventResult.handled;
++    }
++
+     // Select on the player surface. Only intercept when this Focus node itself
+     // holds primary focus — a focused OSD control owns its own activation.
+     // Whether the raised chrome also takes focus is the key's own answer, so
+diff --git a/test/focus/media_stop_key_test.dart b/test/focus/media_stop_key_test.dart
+new file mode 100644
+index 000000000..d87271826
+--- /dev/null
++++ b/test/focus/media_stop_key_test.dart
+@@ -0,0 +1,12 @@
++import 'package:flutter/services.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:plezy/focus/transport_keys.dart';
++
++void main() {
++  test('only the media Stop key is a Stop key', () {
++    expect(isMediaStopKey(LogicalKeyboardKey.mediaStop), isTrue);
++    expect(isMediaStopKey(LogicalKeyboardKey.mediaPlayPause), isFalse);
++    expect(isMediaStopKey(LogicalKeyboardKey.escape), isFalse);
++    expect(isMediaStopKey(LogicalKeyboardKey.goBack), isFalse);
++  });
++}
+diff --git a/test/widgets/video_controls_transient_feedback_test.dart b/test/widgets/video_controls_transient_feedback_test.dart
+index 2d48abd12..915ea7dab 100644
+--- a/test/widgets/video_controls_transient_feedback_test.dart
++++ b/test/widgets/video_controls_transient_feedback_test.dart
+@@ -89,6 +89,7 @@ void main() {
+       bool isLive = false,
+       LiveSeekBy? onLiveSeekBy,
+       String itemId = 'transient-feedback',
++      VoidCallback? onBack,
+     }) async {
+       transportCommands = [];
+       await tester.pumpWidget(
+@@ -114,6 +115,7 @@ void main() {
+                   canNavigateMediaItems: false,
+                   isLive: isLive,
+                   onLiveSeekBy: onLiveSeekBy,
++                  onBack: onBack,
+                   onPlayPauseRequested: wireTransportCallback
+                       ? (command) async {
+                           transportCommands.add(command);
+@@ -677,6 +679,22 @@ void main() {
+       await settleFeedback(tester);
+     });
+ 
++    testWidgets('the Stop key leaves the player without toggling playback', (tester) async {
++      var backs = 0;
++      await pumpControls(tester, wireTransportCallback: true, onBack: () => backs++);
++
++      await tester.sendKeyDownEvent(LogicalKeyboardKey.mediaStop);
++      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.mediaStop);
++      await tester.sendKeyUpEvent(LogicalKeyboardKey.mediaStop);
++      await tester.pump();
++
++      expect(backs, 1, reason: 'one exit per press; repeat and release are consumed');
++      expect(transportCommands, isEmpty);
++      expect(player.playOrPauseCalls, 0);
++
++      await settleFeedback(tester);
++    });
++
+     testWidgets('select raises the chrome before toggling so no badge flashes under it', (tester) async {
+       await pumpControls(tester, wireTransportCallback: true);
+ 
+-- 
+2.55.0
+

@@ -51,6 +51,9 @@ KEY_MEDIA = "KEY_HOMEPAGE"
 # grab keeps logind from seeing the original key.
 KEY_SLEEP = "KEY_F24"
 KEY_POWER2 = "KEY_F24"
+# Stop is KEY_STOP, which XKB calls Cancel; KEY_STOPCD is XF86AudioStop, the
+# media Stop key the apps act on (Plezy leaves the player, Kodi stops).
+KEY_STOP = "KEY_STOPCD"
 
 [setup]
 # Back + OK, with OK already remapped to KEY_ENTER.
