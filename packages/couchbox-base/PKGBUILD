@@ -6,7 +6,7 @@
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.9.0
+pkgver=0.9.1
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)
@@ -75,11 +75,12 @@ source=(
   plezy-prefs.json
   kactivitymanagerd-pluginsrc
   60-couchbox-hdmi-passthrough.conf
+  61-couchbox-hdmi-default.conf
   kodi-guisettings.xml
   couchbox-wallpaper-rotation.js
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -108,6 +109,7 @@ package() {
   install -Dm644 kglobalshortcutsrc "$pkgdir/etc/xdg/kglobalshortcutsrc"
   install -Dm644 kactivitymanagerd-pluginsrc "$pkgdir/etc/xdg/kactivitymanagerd-pluginsrc"
   install -Dm644 60-couchbox-hdmi-passthrough.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/60-couchbox-hdmi-passthrough.conf"
+  install -Dm644 61-couchbox-hdmi-default.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/61-couchbox-hdmi-default.conf"
   # Plezy: TV layout and fullscreen from the first start. No client_identifier:
   # Plezy generates one per box on first run.
   install -Dm644 plezy-prefs.json "$pkgdir/etc/skel/.local/share/com.edde746.plezy/shared_preferences.json"

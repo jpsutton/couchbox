@@ -26,6 +26,7 @@ both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 | YouTube, TV interface (`youtube.com/tv` with a TV user agent; account picker, Link with TV code) | `couchbox-youtube` |
 | ZeroTier (`zerotier-one`, enabled at boot) | `extra` |
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
+| HDMI/DisplayPort audio as the default output when present (a default you pick still wins) | `couchbox-base` (WirePlumber rule) |
 | VA-API driver and microcode, picked by CPU vendor | installer |
 | HDMI off after 10 idle minutes, never system suspend | `couchbox-base` (PowerDevil) |
 | Home screen shows only the app tiles, Konsole and Settings | `couchbox-base` (`/etc/couchbox/visible-apps`) |
