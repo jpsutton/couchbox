@@ -6,7 +6,7 @@
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.10.0
+pkgver=0.10.1
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)
@@ -83,9 +83,10 @@ source=(
   61-couchbox-hdmi-default.conf
   kodi-guisettings.xml
   couchbox-wallpaper-rotation.js
+  kconf_updaterc
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -124,6 +125,8 @@ package() {
   # Plezy generates one per box on first run.
   install -Dm644 plezy-prefs.json "$pkgdir/etc/skel/.local/share/com.edde746.plezy/shared_preferences.json"
   install -Dm644 kodi-guisettings.xml "$pkgdir/etc/skel/.kodi/userdata/guisettings.xml"
+  # Keeps Plasma's 5-to-6 shortcut cleanup from wiping Bigscreen's shortcuts.
+  install -Dm644 kconf_updaterc "$pkgdir/etc/skel/.config/kconf_updaterc"
   install -Dm644 couchbox-wallpaper-rotation.js "$pkgdir/usr/share/plasma/shells/org.kde.plasma.bigscreen/contents/updates/couchbox-wallpaper-rotation.js"
 
   # KWin script: the remote's Home key shows the home screen.

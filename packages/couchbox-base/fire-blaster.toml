@@ -46,11 +46,16 @@ KEY_OK = "KEY_ENTER"
 KEY_EXIT = "KEY_BACK"
 # The green Windows button is KEY_MEDIA: make it Home, short and long press.
 KEY_MEDIA = "KEY_HOMEPAGE"
+# No button sends Menu; DVD Menu, unused otherwise, is Menu, short and long press.
+KEY_DVD = "KEY_COMPOSE"
 # Power is KEY_SLEEP (and KEY_POWER2 on some), which logind would turn into
 # suspend or power-off. As F24 it only wakes the screen, like Power above; the
 # grab keeps logind from seeing the original key.
 KEY_SLEEP = "KEY_F24"
 KEY_POWER2 = "KEY_F24"
+# Stop is KEY_STOP, which XKB calls Cancel; KEY_STOPCD is XF86AudioStop, the
+# media Stop key the apps act on (Plezy leaves the player, Kodi stops).
+KEY_STOP = "KEY_STOPCD"
 
 [setup]
 # Back + OK, with OK already remapped to KEY_ENTER.
