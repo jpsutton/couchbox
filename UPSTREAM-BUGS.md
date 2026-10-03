@@ -6,7 +6,7 @@ couchbox workaround; remove the workaround when the upstream fix ships.
 To add a bug, add a row to the summary and a section below it. When you file
 one, set its status and put the bug link in its section.
 
-Last updated: 2026-09-29
+Last updated: 2026-10-03
 
 ## Summary
 
@@ -33,6 +33,7 @@ Last updated: 2026-09-29
 | 19 | UI too small on a TV from a desktop; Display Scale is car-only | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0003-desktop-display-scale.patch` (in `plezy-couchbox`) | PR in preparation |
 | 20 | Card labels use fixed font sizes; no text size setting | plezy 2.21.0 | Low | Display Scale 1.75x (bug 19) instead; Text Size patch dropped | Not filed |
 | 21 | Random segfault starting Python add-ons (thread-state race in CPythonInvoker) | kodi 21.3-12, python 3.14.7 | Medium | None yet; relaunch | Known upstream ([xbmc#27025](https://github.com/xbmc/xbmc/issues/27025)); fixed in v22 only |
+| 22 | Remote Back does not close the time zone, time and date pickers | plasma-bigscreen 6.7.5 and master | Low | None yet; use the on-screen Back button. couchbox sets the time zone automatically | Not filed |
 
 ## 1. Home and Menu are bound globally, so apps never get those keys
 
@@ -488,6 +489,28 @@ twice on the NUC (2026-09-29 16:14 UTC and 2026-10-01 03:34 UTC).
 - **couchbox workaround:** none yet. Options: backport #27320 into a
   couchbox Kodi build, or start fewer Python services at once (e.g.
   disable `service.xbmc.versioncheck`, which has no use on Arch).
+
+## 22. Bigscreen Settings: remote Back does not close the time pickers
+
+In Bigscreen Settings, System, "Adjust date and time", the Timezone, Time
+and Date entries each open a full-screen picker with a Back button at the
+top. The remote's Back key does nothing there; only selecting the on-screen
+Back button closes the picker.
+
+- **Where:** `kcms/bigscreen-settings/ui/DeviceTimeSettingsSidebar.qml`. The
+  three pickers are plain `QQC2.Popup`s. Bigscreen handles Back through its
+  `BackHandler` attached property (`Qt::Key_Back`, `Qt::Key_Escape` or the
+  mouse Back button), and its own `Dialog` control sets
+  `BackHandler.enabled: root.visible` and `BackHandler.onActivated:
+  root.reject()`. These popups set no `BackHandler`, and a popup's default
+  close policy reacts to Escape only, so `Key_Back` from the remote
+  (fire-blaster sends `KEY_BACK`) is ignored. Unchanged on master
+  (checked 2026-10-03).
+- **Fix:** give each popup `Bigscreen.BackHandler.enabled: visible` and
+  `Bigscreen.BackHandler.onActivated: close()`, or build them on
+  Bigscreen's `Dialog`.
+- **couchbox workaround:** none yet. The time zone picker is rarely needed:
+  couchbox sets the zone from the network at install and at login.
 
 ## Plezy pull requests
 

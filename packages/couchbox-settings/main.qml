@@ -200,5 +200,45 @@ Bigscreen.ScrollablePage {
                 }
             }
         }
+
+        QQC2.Label {
+            text: "Time"
+            font.pixelSize: Bigscreen.Units.headingFontPixelSize
+
+            Layout.topMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+        }
+
+        // [Time] Automatic in couchboxrc, read by couchbox-timezone at login.
+        // A zone set by hand elsewhere switches it off (couchbox-timezone).
+        Bigscreen.SwitchDelegate {
+            id: automaticTimeZone
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            property string status: ""
+
+            text: "Set the time zone automatically"
+            description: kcm.timeZone() + status
+
+            Component.onCompleted: checked = kcm.value("Time", "Automatic", "true") !== "false"
+            onToggled: {
+                kcm.setValue("Time", "Automatic", checked ? "true" : "false");
+                status = checked && !kcm.updateTimeZone() ? " (offline: updates once online)" : "";
+                // timeZone() isn't a property; re-evaluate the binding.
+                description = Qt.binding(() => kcm.timeZone() + status);
+            }
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+            wrapMode: Text.WordWrap
+            opacity: 0.7
+            text: "Finds the time zone from this network's location (ipinfo.io) each time couchbox starts. "
+                + "To pick one yourself, use Timezone under System, Adjust date and time; "
+                + "that switches this off."
+        }
     }
 }

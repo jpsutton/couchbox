@@ -6,7 +6,7 @@
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.9.1
+pkgver=0.10.0
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)
@@ -19,6 +19,8 @@ depends=(
   # Power-saver profile while the screen sleeps (couchbox-power-profile)
   power-profiles-daemon
   # couchbox-video-profile: vainfo for what the GPU decodes
+  # couchbox-timezone: curl for the GeoIP lookup, kconfig for couchboxrc
+  curl kconfig
   python libva-utils
   zerotier-one
   # The remote: long-press Home (and IR once a blaster is fitted)
@@ -65,6 +67,9 @@ source=(
   couchbox-power-profile.service
   couchbox-video-profile
   couchbox-video-profile.service
+  couchbox-timezone
+  couchbox-timezone.service
+  50-couchbox-timezone.rules
   90-couchbox-wifi-backup
   sysctl-couchbox-arp.conf
   kwinrc
@@ -80,7 +85,7 @@ source=(
   couchbox-wallpaper-rotation.js
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -102,6 +107,11 @@ package() {
   install -Dm644 couchbox-video-profile.service "$pkgdir/usr/lib/systemd/user/couchbox-video-profile.service"
   install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
   ln -s ../couchbox-video-profile.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-video-profile.service"
+  # Time zone from the network's location at every login, unless switched off.
+  install -Dm755 couchbox-timezone "$pkgdir/usr/bin/couchbox-timezone"
+  install -Dm644 couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/couchbox-timezone.service"
+  ln -s ../couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-timezone.service"
+  install -Dm644 50-couchbox-timezone.rules "$pkgdir/usr/share/polkit-1/rules.d/50-couchbox-timezone.rules"
   install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
   install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"
