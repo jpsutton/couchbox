@@ -9,6 +9,7 @@
 # The TV code sets are generated at build time from the Amazon Fire TV IR
 # dump (pinned to a commit), with fire-blaster's own importer, so they never
 # need to be committed anywhere.
+# fire-blaster's extra-profiles/ (hand-captured code sets) are added to them.
 
 pkgname=fire-blaster
 pkgver=0.1.0.r$(<srcstamp)
@@ -33,6 +34,11 @@ build() {
   rm -rf profiles
   PYTHONPATH=src python -m fireblaster.importer "$srcdir/ir_profiles_db-${_irdb:0:7}.json" \
     -o profiles -t tv -t projector
+  # Hand-captured profiles that ship with fire-blaster (e.g. an AV receiver a
+  # [[remote]] profile points at), next to the generated code sets.
+  if [[ -d extra-profiles ]]; then
+    cp -r extra-profiles/. profiles/
+  fi
 }
 
 package() {
