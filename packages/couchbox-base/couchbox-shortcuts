@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Keep the global shortcuts couchbox frees for apps free.
+
+/etc/xdg/kglobalshortcutsrc sets some Plasma and Bigscreen shortcuts to
+"none" so their keys reach the app in front (Home, Menu, the media keys).
+kglobalaccel doesn't always honour those defaults: on a new account Plasma's
+Media Controller came up with every media key bound, and Bigscreen re-binds
+plain Home and Menu after Plasma's 5-to-6 cleanup removes its actions
+(UPSTREAM-BUGS 24). This clears, through kglobalaccel, every action that
+/etc/xdg/kglobalshortcutsrc sets to none but the user's session has bound.
+
+Run by couchbox-shortcuts.service at each login: once at start, and once
+more a minute and a half later for actions that register late (plasmashell).
+"""
+import configparser
+import sys
+import time
+
+import dbus
+
+DEFAULTS = "/etc/xdg/kglobalshortcutsrc"
+
+
+def freed_actions(path=DEFAULTS):
+    """(component, action) pairs whose active shortcut is none."""
+    config = configparser.ConfigParser(interpolation=None, strict=False)
+    config.optionxform = str  # action names are case-sensitive
+    config.read(path)
+    for component in config.sections():
+        for action, value in config.items(component):
+            if action.startswith("_k_"):
+                continue
+            if value.split(",", 1)[0].strip() == "none":
+                yield component, action
+
+
+def apply(kglobalaccel):
+    cleared = 0
+    for component, action in freed_actions():
+        action_id = dbus.Array([component, action, "", ""], signature="s")
+        try:
+            if not kglobalaccel.shortcutKeys(action_id):
+                continue
+            kglobalaccel.setForeignShortcutKeys(action_id, dbus.Array([], signature="(ai)"))
+        except dbus.DBusException as e:
+            print(f"{component}/{action}: {e.get_dbus_message()}", file=sys.stderr)
+            continue
+        print(f"freed {component}/{action}")
+        cleared += 1
+    return cleared
+
+
+def main():
+    bus = dbus.SessionBus()
+    kglobalaccel = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/kglobalaccel"), "org.kde.KGlobalAccel")
+    for delay in (0, 90):
+        time.sleep(delay)
+        apply(kglobalaccel)
+
+
+if __name__ == "__main__":
+    main()

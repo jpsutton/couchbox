@@ -69,6 +69,8 @@ source=(
   couchbox-video-profile.service
   couchbox-timezone
   couchbox-timezone.service
+  couchbox-shortcuts
+  couchbox-shortcuts.service
   50-couchbox-timezone.rules
   90-couchbox-wifi-backup
   sysctl-couchbox-arp.conf
@@ -86,7 +88,7 @@ source=(
   kconf_updaterc
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -112,6 +114,10 @@ package() {
   install -Dm755 couchbox-timezone "$pkgdir/usr/bin/couchbox-timezone"
   install -Dm644 couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/couchbox-timezone.service"
   ln -s ../couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-timezone.service"
+  # Re-applies the "none" shortcuts in /etc/xdg/kglobalshortcutsrc at login.
+  install -Dm755 couchbox-shortcuts "$pkgdir/usr/bin/couchbox-shortcuts"
+  install -Dm644 couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/couchbox-shortcuts.service"
+  ln -s ../couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-shortcuts.service"
   install -Dm644 50-couchbox-timezone.rules "$pkgdir/usr/share/polkit-1/rules.d/50-couchbox-timezone.rules"
   install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
   install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"

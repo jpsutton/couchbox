@@ -27,7 +27,7 @@ Last updated: 2026-10-03
 | 13 | Home Page and media keys reach the page as unidentified keys | jellium-desktop 0.r1155.14dc084 | Medium | Patch `0001-map-xf86-browser-and-media-keys.patch` | Not filed |
 | 14 | "Toggle Bigscreen Tasks Overview" shortcut has no handler | plasma-bigscreen 6.7.5 | Medium | Long Menu sends the home overlay's default Meta+O; tasks shortcut cleared | Not filed |
 | 15 | Opening a named PulseAudio sink takes ~31 s; playback stalls | kodi 21.3-12, pipewire 1.6.9 | High | Keep Kodi on the Default audio device | Not filed |
-| 16 | Media keys only reach MPRIS players; Kodi gets nothing | plasma-workspace 6.7.5 (mediacontrol) | Medium | `mediacontrol` bindings cleared in `/etc/xdg/kglobalshortcutsrc` | Not filed |
+| 16 | Media keys only reach MPRIS players; Kodi gets nothing | plasma-workspace 6.7.5 (mediacontrol) | Medium | `mediacontrol` bindings cleared in `/etc/xdg/kglobalshortcutsrc`, and again at each login by `couchbox-shortcuts` (a new account came up with them bound anyway) | Not filed |
 | 17 | Play/Pause key only plays, never pauses, on Linux | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0002-linux-play-pause-key-toggles.patch` (in `plezy-couchbox`) | [edde746/plezy#2552](https://github.com/edde746/plezy/pull/2552) |
 | 18 | Home key does nothing; no way back to the Home tab from a remote | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0001-home-key-returns-to-home-tab.patch` (in `plezy-couchbox`) | PR in preparation |
 | 19 | UI too small on a TV from a desktop; Display Scale is car-only | plezy 2.21.0, 2.22.0 | Medium | Patch `packages/plezy-couchbox/0003-desktop-display-scale.patch` (in `plezy-couchbox`) | PR in preparation |

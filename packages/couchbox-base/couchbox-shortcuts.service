@@ -1,0 +1,10 @@
+[Unit]
+Description=couchbox: keep the shortcuts couchbox frees for apps unbound
+After=plasma-kglobalaccel.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/couchbox-shortcuts
+
+[Install]
+WantedBy=default.target
