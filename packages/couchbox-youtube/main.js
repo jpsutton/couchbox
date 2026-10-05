@@ -19,9 +19,9 @@ const USER_AGENT = process.env.COUCHBOX_YOUTUBE_UA
   + 'Chrome/120.0.6099.270 Safari/537.36 WebAppManager';
 const ALLOWED_HOSTS = /(^|\.)(youtube\.com|google\.com|googlevideo\.com|ytimg\.com|ggpht\.com|gstatic\.com|googleusercontent\.com|youtube-nocookie\.com|accounts\.google\.[a-z.]+)$/;
 
-// [YouTube] Codecs in ~/.config/couchboxrc, set from the couchbox page in
-// Bigscreen Settings: auto (default), any, or h264.
-function codecSetting() {
+// A [YouTube] setting in ~/.config/couchboxrc, set from the couchbox page in
+// Bigscreen Settings, or [fallback].
+function youtubeSetting(key, fallback) {
   const dir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
   let group = '';
   try {
@@ -31,14 +31,29 @@ function codecSetting() {
         group = header[1];
         continue;
       }
-      const entry = line.match(/^\s*Codecs\s*=\s*(\S+)/);
-      if (group === 'YouTube' && entry) return entry[1];
+      const entry = line.match(/^\s*([A-Za-z]+)\s*=\s*(\S+)/);
+      if (group === 'YouTube' && entry && entry[1] === key) return entry[2];
     }
   } catch {
     // No file yet: the default.
   }
-  return 'auto';
+  return fallback;
 }
+
+// Codecs: auto (default), any, or h264.
+const codecSetting = () => youtubeSetting('Codecs', 'auto');
+
+// HomePage: where the remote's Home key goes. Hash routes of the TV app
+// (youtube.com/tv#/browse?c=<browse id>).
+const HOME_PAGES = {
+  subscriptions: '#/browse?c=FEsubscriptions',
+  library: '#/browse?c=FEmy_youtube',
+  home: '',
+};
+const homeUrl = () => TV_URL + (HOME_PAGES[youtubeSetting('HomePage', 'subscriptions')] ?? HOME_PAGES.subscriptions);
+
+// HideShorts: true (default) or false; see preload.js.
+const hideShorts = () => youtubeSetting('HideShorts', 'true') !== 'false';
 
 // Codecs the GPU decodes, per VA-API: a subset of ['vp9', 'av1'].
 function hardwareCodecs() {
@@ -78,7 +93,7 @@ function onKey(win, event, input) {
     win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
   } else if (input.key === 'BrowserHome') {
     event.preventDefault();
-    win.loadURL(TV_URL);
+    win.loadURL(homeUrl());
   } else if (input.key === 'F11') {
     event.preventDefault();
     win.setFullScreen(!win.isFullScreen());
@@ -109,7 +124,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
-      additionalArguments: [`--couchbox-block-codecs=${blocked.join(',')}`],
+      additionalArguments: [`--couchbox-block-codecs=${blocked.join(',')}`, `--couchbox-hide-shorts=${hideShorts()}`],
     },
   });
   win.removeMenu();

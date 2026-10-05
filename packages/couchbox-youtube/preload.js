@@ -10,12 +10,81 @@
 // 2. Hide video codecs the main process decided to block (see blockedCodecs in
 //    main.js), so YouTube picks a format this PC decodes well, the way the
 //    h264ify extension does.
+// 3. Leave Shorts out ([YouTube] HideShorts, on by default): the TV app's
+//    page data arrives as JSON, and Shorts tiles (TILE_STYLE_YTLR_SHORTS, or
+//    opening a reelWatchEndpoint), Shorts grids and the rows they leave empty
+//    are dropped before the app sees them.
 'use strict';
 
 const { contextBridge } = require('electron');
 
 const arg = process.argv.find(a => a.startsWith('--couchbox-block-codecs='));
 const blocked = arg ? arg.split('=')[1].split(',').filter(Boolean) : [];
+const hideShorts = process.argv.includes('--couchbox-hide-shorts=true');
+
+if (hideShorts) {
+  contextBridge.executeInMainWorld({
+    func: () => {
+      const isReel = cmd => !!cmd && typeof cmd === 'object' && JSON.stringify(cmd).includes('"reelWatchEndpoint"');
+      const isShort = item => {
+        if (!item || typeof item !== 'object') return false;
+        const tile = item.tileRenderer;
+        if (tile && (tile.style === 'TILE_STYLE_YTLR_SHORTS' || isReel(tile.onSelectCommand))) return true;
+        if (item.reelItemRenderer || item.shortsLockupViewModel) return true;
+        const grid = item.gridRenderer;
+        return !!(grid && grid.style && /SHORTS/.test(String(grid.style.type || grid.style)));
+      };
+      // A row whose items are all gone.
+      const isEmptyRow = item => {
+        const shelf = item && item.shelfRenderer;
+        const list = shelf && shelf.content && (shelf.content.horizontalListRenderer || shelf.content.gridRenderer);
+        return !!(list && Array.isArray(list.items) && list.items.length === 0);
+      };
+      const clean = (node, depth) => {
+        if (!node || typeof node !== 'object' || depth > 40) return node;
+        if (Array.isArray(node)) {
+          for (let i = node.length - 1; i >= 0; i--) {
+            if (isShort(node[i])) {
+              node.splice(i, 1);
+              continue;
+            }
+            clean(node[i], depth + 1);
+            if (isEmptyRow(node[i])) node.splice(i, 1);
+          }
+          return node;
+        }
+        for (const key of Object.keys(node)) clean(node[key], depth + 1);
+        return node;
+      };
+      if (window.Response) {
+        const json = Response.prototype.json;
+        Response.prototype.json = function () {
+          return json.call(this).then(value => {
+            try {
+              clean(value, 0);
+            } catch {
+              // Leave the page as it came.
+            }
+            return value;
+          });
+        };
+      }
+      const parse = JSON.parse;
+      JSON.parse = function (text, reviver) {
+        const value = parse.call(this, text, reviver);
+        // Only page data (InnerTube responses) is worth walking.
+        if (typeof text === 'string' && text.length > 200 && text.includes('Renderer')) {
+          try {
+            clean(value, 0);
+          } catch {
+            // Leave the page as it came.
+          }
+        }
+        return value;
+      };
+    },
+  });
+}
 
 contextBridge.executeInMainWorld({
   args: [blocked],

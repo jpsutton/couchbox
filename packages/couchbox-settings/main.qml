@@ -37,7 +37,7 @@ Bigscreen.ScrollablePage {
         // fall through to the scroll view, which scrolls the page instead.
         // Set here because the Repeater's delegates only exist once it has run.
         Component.onCompleted: {
-            const chain = [youtubeCodecs, plezyScaling];
+            const chain = [youtubeCodecs, youtubeHome, youtubeShorts, plezyScaling];
             for (let i = 0; i < transcode.count; i++) {
                 chain.push(transcode.itemAt(i));
             }
@@ -88,6 +88,41 @@ Bigscreen.ScrollablePage {
             opacity: 0.7
             text: "Automatic plays only the formats this PC's graphics can decode; H.264 only suits "
                 + "older PCs. Takes effect the next time YouTube starts."
+        }
+
+        // [YouTube] HomePage, read by couchbox-youtube on each Home press.
+        Bigscreen.ComboBoxDelegate {
+            id: youtubeHome
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            readonly property string group: "YouTube"
+            readonly property string key: "HomePage"
+            readonly property string fallback: "subscriptions"
+
+            text: "Home button goes to"
+            textRole: "text"
+            valueRole: "value"
+            model: [
+                { text: "Subscriptions", value: "subscriptions" },
+                { text: "Home", value: "home" },
+                { text: "Library", value: "library" },
+            ]
+
+            Component.onCompleted: currentIndex = Math.max(0, indexOfValue(kcm.value(group, key, fallback)))
+            onActivated: index => kcm.setValue(group, key, model[index].value)
+        }
+
+        // [YouTube] HideShorts, read by couchbox-youtube at start.
+        Bigscreen.SwitchDelegate {
+            id: youtubeShorts
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+
+            text: "Hide Shorts"
+            description: "Takes effect the next time YouTube starts"
+
+            Component.onCompleted: checked = kcm.value("YouTube", "HideShorts", "true") !== "false"
+            onToggled: kcm.setValue("YouTube", "HideShorts", checked ? "true" : "false")
         }
 
         QQC2.Label {
