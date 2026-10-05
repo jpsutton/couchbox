@@ -5,8 +5,13 @@
      Audio: 5.1 is decoded and downmixed to stereo for TV speakers, keeping the
      original level (maintain original volume, Kodi's default) and raising the
      center channel, where dialog sits, by 8 dB. Passthrough stays off (Kodi's
-     default), since the TV would then decode AC-3 itself without the boost. -->
+     default), since the TV would then decode AC-3 itself without the boost.
+
+     Remote control from applications on this system: JSON-RPC on
+     localhost:9090, which couchbox-focus uses to pause video when Kodi leaves
+     the screen. -->
 <settings version="2">
+    <setting id="services.esenabled">true</setting>
     <defaultvideosettings>
         <centermixlevel>8</centermixlevel>
     </defaultvideosettings>

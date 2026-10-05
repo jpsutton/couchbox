@@ -15,26 +15,6 @@
 // From the home screen, with no Bigscreen overlay or sidebar open: bring back
 // the app that was last in front, if it is still running.
 
-// Apps that want to know when they are minimized: on Wayland a client isn't
-// told, and couchbox-iptv stops its stream while out of sight. By window
-// resource class, the D-Bus service to call with Hidden or Shown.
-const notifyMinimized = {
-    "org.couchbox.iptv": "org.couchbox.iptv",
-};
-
-function watchMinimized(w) {
-    const service = notifyMinimized[w.resourceClass];
-    if (!service) {
-        return;
-    }
-    w.minimizedChanged.connect(function () {
-        callDBus(service, "/org/couchbox/iptv", "org.couchbox.iptv.Window", w.minimized ? "Hidden" : "Shown");
-    });
-}
-
-workspace.windowList().forEach(watchMinimized);
-workspace.windowAdded.connect(watchMinimized);
-
 // The app window last in front (not plasmashell, not Bigscreen Settings).
 let lastApp = null;
 
@@ -42,15 +22,67 @@ function isApp(w) {
     return w && w.normalWindow && w.resourceClass !== "plasmashell" && w.caption !== "Bigscreen Settings";
 }
 
-workspace.windowActivated.connect(function (w) {
-    if (isApp(w)) {
-        lastApp = w;
+// couchbox-focus pauses (or, for live TV, stops) an app that leaves the
+// screen: minimized (long Home), or another app brought to the front.
+// Bigscreen's own overlays don't count. On Wayland an app isn't told it was
+// minimized, so it can't do this itself.
+const backgrounded = [];
+
+function focusCall(method, w) {
+    callDBus("org.couchbox.Focus", "/org/couchbox/Focus", "org.couchbox.Focus", method, w.resourceClass, w.pid);
+}
+
+function background(w) {
+    if (!isApp(w) || backgrounded.includes(w)) {
+        return;
     }
+    backgrounded.push(w);
+    focusCall("Background", w);
+}
+
+function foreground(w) {
+    const i = backgrounded.indexOf(w);
+    if (i < 0) {
+        return;
+    }
+    backgrounded.splice(i, 1);
+    focusCall("Foreground", w);
+}
+
+function watch(w) {
+    if (!isApp(w)) {
+        return;
+    }
+    w.minimizedChanged.connect(function () {
+        if (w.minimized) {
+            background(w);
+        } else {
+            foreground(w);
+        }
+    });
+}
+
+workspace.windowList().forEach(watch);
+workspace.windowAdded.connect(watch);
+
+workspace.windowActivated.connect(function (w) {
+    if (!isApp(w)) {
+        return;
+    }
+    if (lastApp && lastApp !== w && !lastApp.minimized) {
+        background(lastApp);
+    }
+    foreground(w);
+    lastApp = w;
 });
 
 workspace.windowRemoved.connect(function (w) {
     if (w === lastApp) {
         lastApp = null;
+    }
+    const i = backgrounded.indexOf(w);
+    if (i >= 0) {
+        backgrounded.splice(i, 1);
     }
 });
 

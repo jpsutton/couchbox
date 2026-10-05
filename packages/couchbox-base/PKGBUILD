@@ -6,7 +6,7 @@
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.10.1
+pkgver=0.10.2
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
 arch=(any)
@@ -71,6 +71,9 @@ source=(
   couchbox-timezone.service
   couchbox-shortcuts
   couchbox-shortcuts.service
+  couchbox-focus
+  couchbox-focus.service
+  org.couchbox.Focus.service
   50-couchbox-timezone.rules
   90-couchbox-wifi-backup
   sysctl-couchbox-arp.conf
@@ -88,7 +91,7 @@ source=(
   kconf_updaterc
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -114,6 +117,11 @@ package() {
   install -Dm755 couchbox-timezone "$pkgdir/usr/bin/couchbox-timezone"
   install -Dm644 couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/couchbox-timezone.service"
   ln -s ../couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-timezone.service"
+  # Pauses apps that leave the screen; started by D-Bus when couchbox-home
+  # first calls it.
+  install -Dm755 couchbox-focus "$pkgdir/usr/bin/couchbox-focus"
+  install -Dm644 couchbox-focus.service "$pkgdir/usr/lib/systemd/user/couchbox-focus.service"
+  install -Dm644 org.couchbox.Focus.service "$pkgdir/usr/share/dbus-1/services/org.couchbox.Focus.service"
   # Re-applies the "none" shortcuts in /etc/xdg/kglobalshortcutsrc at login.
   install -Dm755 couchbox-shortcuts "$pkgdir/usr/bin/couchbox-shortcuts"
   install -Dm644 couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/couchbox-shortcuts.service"

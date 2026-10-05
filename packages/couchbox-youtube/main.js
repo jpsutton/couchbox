@@ -130,16 +130,27 @@ function createWindow() {
   win.loadURL(TV_URL);
 }
 
+// Pauses the playing video. Run as `couchbox-youtube --pause` by
+// couchbox-focus when YouTube leaves the screen: this app turns off Chromium's
+// MPRIS player (see the switches above), so nothing else can pause it.
+const PAUSE_VIDEO = `document.querySelectorAll('video').forEach(v => v.pause());`;
+
 // One instance: the tile raises the running window instead of opening a second.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
+} else if (process.argv.includes('--pause')) {
+  // Nothing running to pause: don't start YouTube.
+  app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
     const [win] = BrowserWindow.getAllWindows();
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
+    if (!win) return;
+    if (argv.includes('--pause')) {
+      win.webContents.executeJavaScript(PAUSE_VIDEO).catch(() => {});
+      return;
     }
+    if (win.isMinimized()) win.restore();
+    win.focus();
   });
   app.whenReady().then(() => {
     session.defaultSession.setUserAgent(USER_AGENT);

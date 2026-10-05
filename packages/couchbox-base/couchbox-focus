@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""Pause or stop apps that leave the screen.
+
+couchbox's KWin script (couchbox-home) calls this service, org.couchbox.Focus
+on the session bus, when an app window is minimized (long Home) or another
+app comes to the front:
+
+  Background(resource_class, pid)   the app is out of sight
+  Foreground(resource_class, pid)   it is back
+
+What happens depends on the app:
+
+  couchbox-iptv   stops its live stream, and tunes it again when back
+                  (org.couchbox.iptv.Window: Hidden, Shown)
+  Kodi            pauses a playing video over JSON-RPC (localhost:9090,
+                  "Allow remote control from applications on this system");
+                  music keeps playing
+  YouTube         pauses its video (couchbox-youtube --pause; it has no
+                  MPRIS player)
+  anything else   pauses its MPRIS player (Plezy), found by process id; music
+                  (a track with an album) keeps playing
+
+Music keeps playing unless couchboxrc [Playback] KeepMusicPlaying is false
+(the couchbox page in Settings). On-demand video stays paused when the app
+comes back; press Play.
+"""
+import json
+import signal
+import socket
+import subprocess
+import sys
+
+import dbus
+import dbus.mainloop.glib
+import dbus.service
+from gi.repository import GLib
+
+BUS_NAME = "org.couchbox.Focus"
+IPTV = "org.couchbox.iptv"
+KODI_CLASSES = {"kodi", "Kodi"}
+YOUTUBE = "couchbox-youtube"
+MPRIS_PREFIX = "org.mpris.MediaPlayer2."
+
+
+def log(message):
+    print(message, flush=True)
+
+
+def keep_music():
+    """couchboxrc [Playback] KeepMusicPlaying, true unless set to false."""
+    try:
+        value = subprocess.run(
+            ["kreadconfig6", "--file", "couchboxrc", "--group", "Playback", "--key", "KeepMusicPlaying",
+             "--default", "true"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return True
+    return value != "false"
+
+
+def kodi_rpc(method, params=None, timeout=2.0):
+    """One JSON-RPC call to Kodi on localhost:9090, or None."""
+    request = {"jsonrpc": "2.0", "id": 1, "method": method}
+    if params is not None:
+        request["params"] = params
+    try:
+        with socket.create_connection(("127.0.0.1", 9090), timeout=timeout) as sock:
+            sock.sendall(json.dumps(request).encode())
+            data = b""
+            decoder = json.JSONDecoder()
+            while True:
+                chunk = sock.recv(65536)
+                if not chunk:
+                    return None
+                data += chunk
+                try:
+                    reply, _ = decoder.raw_decode(data.decode())
+                except ValueError:
+                    continue  # not the whole object yet
+                if reply.get("id") == 1:
+                    return reply.get("result")
+                data = b""  # a notification; wait for our reply
+    except OSError as e:
+        log(f"kodi: {e}")
+        return None
+
+
+def pause_kodi():
+    music = keep_music()
+    for player in kodi_rpc("Player.GetActivePlayers") or []:
+        if player.get("type") == "picture" or (player.get("type") == "audio" and music):
+            continue
+        props = kodi_rpc("Player.GetProperties", {"playerid": player["playerid"], "properties": ["speed"]}) or {}
+        if props.get("speed", 0) != 0:
+            kodi_rpc("Player.PlayPause", {"playerid": player["playerid"], "play": False})
+            log(f"kodi: paused {player.get('type')}")
+
+
+class Focus(dbus.service.Object):
+    def __init__(self, bus):
+        self.bus = bus
+        super().__init__(bus, "/org/couchbox/Focus")
+
+    def _mpris_players(self, pid):
+        """MPRIS bus names owned by process [pid]."""
+        dbus_iface = dbus.Interface(self.bus.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus"),
+                                    "org.freedesktop.DBus")
+        for name in dbus_iface.ListNames():
+            if not str(name).startswith(MPRIS_PREFIX):
+                continue
+            try:
+                if int(dbus_iface.GetConnectionUnixProcessID(name)) == pid:
+                    yield str(name)
+            except dbus.DBusException:
+                continue
+
+    def _pause_mpris(self, pid):
+        music = keep_music()
+        for name in self._mpris_players(pid):
+            try:
+                player = self.bus.get_object(name, "/org/mpris/MediaPlayer2")
+                props = dbus.Interface(player, "org.freedesktop.DBus.Properties")
+                if props.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus") != "Playing":
+                    continue
+                metadata = props.Get("org.mpris.MediaPlayer2.Player", "Metadata")
+                if music and metadata.get("xesam:album"):
+                    log(f"{name}: music, left playing")
+                    continue
+                dbus.Interface(player, "org.mpris.MediaPlayer2.Player").Pause()
+                log(f"{name}: paused")
+            except dbus.DBusException as e:
+                log(f"{name}: {e.get_dbus_message()}")
+
+    def _iptv(self, method):
+        try:
+            obj = self.bus.get_object(IPTV, "/org/couchbox/iptv")
+            dbus.Interface(obj, "org.couchbox.iptv.Window").get_dbus_method(method)()
+        except dbus.DBusException as e:
+            log(f"iptv: {e.get_dbus_message()}")
+
+    # No in_signature: KWin's callDBus sends JavaScript numbers as doubles.
+    @dbus.service.method(BUS_NAME)
+    def Background(self, resource_class, pid):
+        resource_class, pid = str(resource_class), int(pid)
+        log(f"background: {resource_class} ({pid})")
+        if resource_class == IPTV:
+            self._iptv("Hidden")
+        elif resource_class in KODI_CLASSES:
+            pause_kodi()
+        elif resource_class == YOUTUBE:
+            subprocess.Popen([YOUTUBE, "--pause"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            log("youtube: paused")
+        elif pid > 0:
+            self._pause_mpris(pid)
+
+    @dbus.service.method(BUS_NAME)
+    def Foreground(self, resource_class, pid):
+        resource_class = str(resource_class)
+        if resource_class == IPTV:
+            log(f"foreground: {resource_class}")
+            self._iptv("Shown")
+
+
+def main():
+    # Reap the couchbox-youtube --pause runs without waiting on them.
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    name = dbus.service.BusName(BUS_NAME, bus, do_not_queue=True)
+    focus = Focus(bus)
+    loop = GLib.MainLoop()
+    loop.run()
+    del name, focus
+
+
+if __name__ == "__main__":
+    sys.exit(main())

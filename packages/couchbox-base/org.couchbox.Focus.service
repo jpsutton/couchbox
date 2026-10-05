@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.couchbox.Focus
+Exec=/usr/bin/couchbox-focus
+SystemdService=couchbox-focus.service

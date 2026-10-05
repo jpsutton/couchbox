@@ -41,7 +41,7 @@ Bigscreen.ScrollablePage {
             for (let i = 0; i < transcode.count; i++) {
                 chain.push(transcode.itemAt(i));
             }
-            chain.push(detectHardware, automaticTimeZone);
+            chain.push(detectHardware, automaticTimeZone, keepMusic);
             for (let i = 0; i + 1 < chain.length; i++) {
                 chain[i].KeyNavigation.down = chain[i + 1];
                 chain[i + 1].KeyNavigation.up = chain[i];
@@ -255,6 +255,38 @@ Bigscreen.ScrollablePage {
             text: "Finds the time zone from this network's location (ipinfo.io) each time couchbox starts. "
                 + "To pick one yourself, use Timezone under System, Adjust date and time; "
                 + "that switches this off."
+        }
+
+        QQC2.Label {
+            text: "Apps in the background"
+            font.pixelSize: Bigscreen.Units.headingFontPixelSize
+
+            Layout.topMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+        }
+
+        // [Playback] KeepMusicPlaying in couchboxrc, read by couchbox-focus
+        // each time an app leaves the screen.
+        Bigscreen.SwitchDelegate {
+            id: keepMusic
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            text: "Keep music playing"
+            description: "When you go to the home screen or another app"
+
+            Component.onCompleted: checked = kcm.value("Playback", "KeepMusicPlaying", "true") !== "false"
+            onToggled: kcm.setValue("Playback", "KeepMusicPlaying", checked ? "true" : "false")
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+            wrapMode: Text.WordWrap
+            opacity: 0.7
+            text: "Video pauses when its app leaves the screen (live TV stops), in Plezy, Kodi, YouTube "
+                + "and Internet TV; press Play when you come back."
         }
     }
 }
