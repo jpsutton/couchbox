@@ -33,6 +33,21 @@ Bigscreen.ScrollablePage {
         KeyNavigation.left: root.KeyNavigation.left
         spacing: 0
 
+        // Up and Down move between the settings. Without these links the keys
+        // fall through to the scroll view, which scrolls the page instead.
+        // Set here because the Repeater's delegates only exist once it has run.
+        Component.onCompleted: {
+            const chain = [youtubeCodecs, plezyScaling];
+            for (let i = 0; i < transcode.count; i++) {
+                chain.push(transcode.itemAt(i));
+            }
+            chain.push(detectHardware, automaticTimeZone);
+            for (let i = 0; i + 1 < chain.length; i++) {
+                chain[i].KeyNavigation.down = chain[i + 1];
+                chain[i + 1].KeyNavigation.up = chain[i];
+            }
+        }
+
         QQC2.Label {
             text: "YouTube"
             font.pixelSize: Bigscreen.Units.headingFontPixelSize
@@ -185,6 +200,7 @@ Bigscreen.ScrollablePage {
         }
 
         Bigscreen.ButtonDelegate {
+            id: detectHardware
             Layout.fillWidth: true
             Layout.bottomMargin: Kirigami.Units.gridUnit
 
