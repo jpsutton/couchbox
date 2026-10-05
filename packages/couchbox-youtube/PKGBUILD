@@ -4,7 +4,7 @@
 # the system electron, with remote-key handling. Kept in this repo; no upstream.
 
 pkgname=couchbox-youtube
-pkgver=1.4.0
+pkgver=1.4.1
 pkgrel=1
 pkgdesc="YouTube's TV interface in a fullscreen Electron window, for a remote"
 arch=(any)

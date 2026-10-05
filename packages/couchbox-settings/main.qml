@@ -90,7 +90,7 @@ Bigscreen.ScrollablePage {
                 + "older PCs. Takes effect the next time YouTube starts."
         }
 
-        // [YouTube] HomePage, read by couchbox-youtube on each Home press.
+        // [YouTube] HomePage: where couchbox-youtube starts and Home goes.
         Bigscreen.ComboBoxDelegate {
             id: youtubeHome
             Layout.bottomMargin: Kirigami.Units.smallSpacing
@@ -99,7 +99,7 @@ Bigscreen.ScrollablePage {
             readonly property string key: "HomePage"
             readonly property string fallback: "subscriptions"
 
-            text: "Home button goes to"
+            text: "Start page and Home button"
             textRole: "text"
             valueRole: "value"
             model: [

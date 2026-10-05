@@ -43,7 +43,7 @@ function youtubeSetting(key, fallback) {
 // Codecs: auto (default), any, or h264.
 const codecSetting = () => youtubeSetting('Codecs', 'auto');
 
-// HomePage: where the remote's Home key goes. Hash routes of the TV app
+// HomePage: where the app starts and the remote's Home key goes. Hash routes of the TV app
 // (youtube.com/tv#/browse?c=<browse id>).
 const HOME_PAGES = {
   subscriptions: '#/browse?c=FEsubscriptions',
@@ -142,7 +142,8 @@ function createWindow() {
     }
   });
   win.on('closed', () => app.quit());
-  win.loadURL(TV_URL);
+  // Start on the same page as the Home key.
+  win.loadURL(homeUrl());
 }
 
 // Pauses the playing video. Run as `couchbox-youtube --pause` by
