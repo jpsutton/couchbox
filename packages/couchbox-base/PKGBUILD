@@ -1,14 +1,14 @@
 # Maintainer: Jared Sutton <jpsutton@protonmail.com>
 #
 # Meta package for the couchbox appliance. It pulls in the Bigscreen session
-# and the apps (Kodi, Plezy, YouTube), and ships the config that turns a plain
+# and the apps (Kodi, Plezy, YouTube, IPTV), and ships the config that turns a plain
 # Arch install into the appliance: autologin, service presets, and home-screen
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.9.0
+pkgver=0.11.0
 pkgrel=1
-pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
+pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube, IPTV)"
 arch=(any)
 license=(MIT)
 depends=(
@@ -19,6 +19,8 @@ depends=(
   # Power-saver profile while the screen sleeps (couchbox-power-profile)
   power-profiles-daemon
   # couchbox-video-profile: vainfo for what the GPU decodes
+  # couchbox-timezone: curl for the GeoIP lookup, kconfig for couchboxrc
+  curl kconfig
   python libva-utils
   zerotier-one
   # The remote: long-press Home (and IR once a blaster is fitted)
@@ -31,6 +33,8 @@ depends=(
   plezy-couchbox
   # YouTube's TV interface (packages/couchbox-youtube)
   couchbox-youtube
+  # Free internet TV with a channel guide (packages/couchbox-iptv)
+  couchbox-iptv
   # Home-screen wallpapers for Bigscreen's default slideshow
   couchbox-wallpapers
   # The couchbox page in Bigscreen Settings (packages/couchbox-settings)
@@ -65,6 +69,14 @@ source=(
   couchbox-power-profile.service
   couchbox-video-profile
   couchbox-video-profile.service
+  couchbox-timezone
+  couchbox-timezone.service
+  couchbox-shortcuts
+  couchbox-shortcuts.service
+  couchbox-focus
+  couchbox-focus.service
+  org.couchbox.Focus.service
+  50-couchbox-timezone.rules
   90-couchbox-wifi-backup
   sysctl-couchbox-arp.conf
   kwinrc
@@ -75,11 +87,13 @@ source=(
   plezy-prefs.json
   kactivitymanagerd-pluginsrc
   60-couchbox-hdmi-passthrough.conf
+  61-couchbox-hdmi-default.conf
   kodi-guisettings.xml
   couchbox-wallpaper-rotation.js
+  kconf_updaterc
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -101,6 +115,21 @@ package() {
   install -Dm644 couchbox-video-profile.service "$pkgdir/usr/lib/systemd/user/couchbox-video-profile.service"
   install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
   ln -s ../couchbox-video-profile.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-video-profile.service"
+  # Time zone from the network's location at every login, unless switched off.
+  install -Dm755 couchbox-timezone "$pkgdir/usr/bin/couchbox-timezone"
+  install -Dm644 couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/couchbox-timezone.service"
+  ln -s ../couchbox-timezone.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-timezone.service"
+  # Pauses apps that leave the screen; started by D-Bus when couchbox-home
+  # first calls it.
+  install -Dm755 couchbox-focus "$pkgdir/usr/bin/couchbox-focus"
+  install -Dm644 couchbox-focus.service "$pkgdir/usr/lib/systemd/user/couchbox-focus.service"
+  install -Dm644 org.couchbox.Focus.service "$pkgdir/usr/share/dbus-1/services/org.couchbox.Focus.service"
+  # Re-applies the "none" shortcuts in /etc/xdg/kglobalshortcutsrc at login.
+  install -Dm755 couchbox-shortcuts "$pkgdir/usr/bin/couchbox-shortcuts"
+  install -Dm644 couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/couchbox-shortcuts.service"
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/couchbox-shortcuts.service"
+  install -Dm644 50-couchbox-timezone.rules "$pkgdir/usr/share/polkit-1/rules.d/50-couchbox-timezone.rules"
   install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
   install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"
@@ -108,10 +137,13 @@ package() {
   install -Dm644 kglobalshortcutsrc "$pkgdir/etc/xdg/kglobalshortcutsrc"
   install -Dm644 kactivitymanagerd-pluginsrc "$pkgdir/etc/xdg/kactivitymanagerd-pluginsrc"
   install -Dm644 60-couchbox-hdmi-passthrough.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/60-couchbox-hdmi-passthrough.conf"
+  install -Dm644 61-couchbox-hdmi-default.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/61-couchbox-hdmi-default.conf"
   # Plezy: TV layout and fullscreen from the first start. No client_identifier:
   # Plezy generates one per box on first run.
   install -Dm644 plezy-prefs.json "$pkgdir/etc/skel/.local/share/com.edde746.plezy/shared_preferences.json"
   install -Dm644 kodi-guisettings.xml "$pkgdir/etc/skel/.kodi/userdata/guisettings.xml"
+  # Keeps Plasma's 5-to-6 shortcut cleanup from wiping Bigscreen's shortcuts.
+  install -Dm644 kconf_updaterc "$pkgdir/etc/skel/.config/kconf_updaterc"
   install -Dm644 couchbox-wallpaper-rotation.js "$pkgdir/usr/share/plasma/shells/org.kde.plasma.bigscreen/contents/updates/couchbox-wallpaper-rotation.js"
 
   # KWin script: the remote's Home key shows the home screen.

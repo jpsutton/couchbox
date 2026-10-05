@@ -33,6 +33,21 @@ Bigscreen.ScrollablePage {
         KeyNavigation.left: root.KeyNavigation.left
         spacing: 0
 
+        // Up and Down move between the settings. Without these links the keys
+        // fall through to the scroll view, which scrolls the page instead.
+        // Set here because the Repeater's delegates only exist once it has run.
+        Component.onCompleted: {
+            const chain = [youtubeCodecs, youtubeHome, youtubeShorts, plezyScaling];
+            for (let i = 0; i < transcode.count; i++) {
+                chain.push(transcode.itemAt(i));
+            }
+            chain.push(detectHardware, automaticTimeZone, keepMusic);
+            for (let i = 0; i + 1 < chain.length; i++) {
+                chain[i].KeyNavigation.down = chain[i + 1];
+                chain[i + 1].KeyNavigation.up = chain[i];
+            }
+        }
+
         QQC2.Label {
             text: "YouTube"
             font.pixelSize: Bigscreen.Units.headingFontPixelSize
@@ -73,6 +88,41 @@ Bigscreen.ScrollablePage {
             opacity: 0.7
             text: "Automatic plays only the formats this PC's graphics can decode; H.264 only suits "
                 + "older PCs. Takes effect the next time YouTube starts."
+        }
+
+        // [YouTube] HomePage: where couchbox-youtube starts and Home goes.
+        Bigscreen.ComboBoxDelegate {
+            id: youtubeHome
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            readonly property string group: "YouTube"
+            readonly property string key: "HomePage"
+            readonly property string fallback: "subscriptions"
+
+            text: "Start page and Home button"
+            textRole: "text"
+            valueRole: "value"
+            model: [
+                { text: "Subscriptions", value: "subscriptions" },
+                { text: "Home", value: "home" },
+                { text: "Library", value: "library" },
+            ]
+
+            Component.onCompleted: currentIndex = Math.max(0, indexOfValue(kcm.value(group, key, fallback)))
+            onActivated: index => kcm.setValue(group, key, model[index].value)
+        }
+
+        // [YouTube] HideShorts, read by couchbox-youtube at start.
+        Bigscreen.SwitchDelegate {
+            id: youtubeShorts
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+
+            text: "Hide Shorts"
+            description: "Takes effect the next time YouTube starts"
+
+            Component.onCompleted: checked = kcm.value("YouTube", "HideShorts", "true") !== "false"
+            onToggled: kcm.setValue("YouTube", "HideShorts", checked ? "true" : "false")
         }
 
         QQC2.Label {
@@ -185,6 +235,7 @@ Bigscreen.ScrollablePage {
         }
 
         Bigscreen.ButtonDelegate {
+            id: detectHardware
             Layout.fillWidth: true
             Layout.bottomMargin: Kirigami.Units.gridUnit
 
@@ -199,6 +250,78 @@ Bigscreen.ScrollablePage {
                     transcode.itemAt(i).refresh();
                 }
             }
+        }
+
+        QQC2.Label {
+            text: "Time"
+            font.pixelSize: Bigscreen.Units.headingFontPixelSize
+
+            Layout.topMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+        }
+
+        // [Time] Automatic in couchboxrc, read by couchbox-timezone at login.
+        // A zone set by hand elsewhere switches it off (couchbox-timezone).
+        Bigscreen.SwitchDelegate {
+            id: automaticTimeZone
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            property string status: ""
+
+            text: "Set the time zone automatically"
+            description: kcm.timeZone() + status
+
+            Component.onCompleted: checked = kcm.value("Time", "Automatic", "true") !== "false"
+            onToggled: {
+                kcm.setValue("Time", "Automatic", checked ? "true" : "false");
+                status = checked && !kcm.updateTimeZone() ? " (offline: updates once online)" : "";
+                // timeZone() isn't a property; re-evaluate the binding.
+                description = Qt.binding(() => kcm.timeZone() + status);
+            }
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+            wrapMode: Text.WordWrap
+            opacity: 0.7
+            text: "Finds the time zone from this network's location (ipinfo.io) each time couchbox starts. "
+                + "To pick one yourself, use Timezone under System, Adjust date and time; "
+                + "that switches this off."
+        }
+
+        QQC2.Label {
+            text: "Apps in the background"
+            font.pixelSize: Bigscreen.Units.headingFontPixelSize
+
+            Layout.topMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+        }
+
+        // [Playback] KeepMusicPlaying in couchboxrc, read by couchbox-focus
+        // each time an app leaves the screen.
+        Bigscreen.SwitchDelegate {
+            id: keepMusic
+            Layout.fillWidth: true
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
+
+            text: "Keep music playing"
+            description: "When you go to the home screen or another app"
+
+            Component.onCompleted: checked = kcm.value("Playback", "KeepMusicPlaying", "true") !== "false"
+            onToggled: kcm.setValue("Playback", "KeepMusicPlaying", checked ? "true" : "false")
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+            wrapMode: Text.WordWrap
+            opacity: 0.7
+            text: "Video pauses when its app leaves the screen (live TV stops), in Plezy, Kodi, YouTube "
+                + "and Internet TV; press Play when you come back."
         }
     }
 }

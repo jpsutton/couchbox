@@ -1,0 +1,8 @@
+[Unit]
+Description=couchbox: pause or stop apps that leave the screen
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.couchbox.Focus
+ExecStart=/usr/bin/couchbox-focus

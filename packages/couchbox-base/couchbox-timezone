@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Keep the system time zone matching where the box is, from a GeoIP lookup of
+# the network's public address.
+#
+#   couchbox-timezone detect   print the detected zone
+#   couchbox-timezone login    the user service: retry until online, then set
+#                              the zone if [Time] Automatic is on
+#   couchbox-timezone update   set the zone now (the couchbox settings page,
+#                              when Automatic is switched on)
+#
+# couchboxrc [Time] Automatic (default true) turns it off. The installer sets it
+# to false in /etc/xdg/couchboxrc when a zone is picked by hand. A zone changed
+# elsewhere (Bigscreen's own time zone picker, timedatectl) also turns it off:
+# login compares the zone with the one it last set and leaves a different one
+# alone.
+#
+# Setting the zone needs the polkit rule in couchbox-base
+# (50-couchbox-timezone.rules); without it timedated asks for a password.
+set -uo pipefail
+
+state=${XDG_STATE_HOME:-$HOME/.local/state}/couchbox/timezone-auto
+
+# lookup: one attempt at each service; prints a zone tzdata knows.
+lookup() {
+  local url zone
+  for url in https://ipinfo.io/timezone 'http://ip-api.com/line?fields=timezone'; do
+    zone=$(curl -sf --max-time 8 "$url" | head -n1 | tr -d '[:space:]') || continue
+    # A zone name only, never a path out of zoneinfo.
+    [[ $zone =~ ^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+)*$ ]] || continue
+    [[ -f /usr/share/zoneinfo/$zone ]] || continue
+    printf '%s\n' "$zone"
+    return 0
+  done
+  return 1
+}
+
+current() { timedatectl show -p Timezone --value; }
+
+automatic() {
+  [[ $(kreadconfig6 --file couchboxrc --group Time --key Automatic --default true) != false ]]
+}
+
+# apply <zone>: set it if it differs, and remember it as ours.
+apply() {
+  if [[ $(current) != "$1" ]]; then
+    timedatectl set-timezone "$1" || return 1
+    echo "time zone set to $1"
+  fi
+  mkdir -p "${state%/*}"
+  printf '%s\n' "$1" > "$state"
+}
+
+case ${1:-} in
+  detect)
+    lookup
+    ;;
+  update)
+    if ! zone=$(lookup); then
+      # Forget the last zone set, so the next login doesn't take the current
+      # one for a change by hand.
+      rm -f "$state"
+      echo "couchbox-timezone: no answer from the GeoIP services" >&2
+      exit 1
+    fi
+    apply "$zone"
+    ;;
+  login)
+    automatic || exit 0
+    if [[ -s $state && $(current) != "$(<"$state")" ]]; then
+      echo "time zone changed by hand to $(current); switching automatic off"
+      kwriteconfig6 --file couchboxrc --group Time --key Automatic false
+      exit 0
+    fi
+    # The network can come up well after login (Wi-Fi): keep trying for a
+    # few minutes.
+    for _ in $(seq 20); do
+      if zone=$(lookup); then
+        apply "$zone"
+        exit
+      fi
+      sleep 15
+    done
+    echo "couchbox-timezone: no answer from the GeoIP services; zone left at $(current)" >&2
+    ;;
+  *)
+    sed -n '5,9s/^# \{0,1\}//p' "$0" >&2
+    exit 2
+    ;;
+esac
