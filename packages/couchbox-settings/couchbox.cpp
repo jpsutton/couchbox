@@ -4,8 +4,10 @@
 //
 // Generic on purpose: the page (main.qml, built in as ui/main.qml) names each setting's group, key
 // and default, so adding a setting needs no C++. The video settings also call
-// couchbox-video-profile, which carries them into Plezy and Kodi.
+// couchbox-video-profile, which carries them into Plezy and Kodi, and the
+// time zone switch calls couchbox-timezone.
 
+#include <QFileInfo>
 #include <QProcess>
 
 #include <KConfigGroup>
@@ -50,6 +52,23 @@ public:
     {
         QProcess::execute(QStringLiteral("couchbox-video-profile"), {QStringLiteral("probe")});
         m_config->reparseConfiguration();
+    }
+
+    // The system time zone, from the /etc/localtime link, read fresh each
+    // time (QTimeZone caches it for the process).
+    Q_INVOKABLE QString timeZone() const
+    {
+        const QString target = QFileInfo(QStringLiteral("/etc/localtime")).symLinkTarget();
+        const QString zoneinfo = QStringLiteral("/zoneinfo/");
+        const qsizetype at = target.lastIndexOf(zoneinfo);
+        return at < 0 ? QStringLiteral("UTC") : target.mid(at + zoneinfo.size());
+    }
+
+    // couchbox-timezone (couchbox-base) looks the zone up and sets it. Takes
+    // up to a few seconds; false when the lookup fails (offline).
+    Q_INVOKABLE bool updateTimeZone() const
+    {
+        return QProcess::execute(QStringLiteral("couchbox-timezone"), {QStringLiteral("update")}) == 0;
     }
 
 private:

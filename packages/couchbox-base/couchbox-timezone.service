@@ -1,0 +1,10 @@
+[Unit]
+Description=couchbox: set the time zone from the network's location
+
+[Service]
+# Not oneshot: it may wait minutes for the network, and nothing waits on it.
+Type=exec
+ExecStart=/usr/bin/couchbox-timezone login
+
+[Install]
+WantedBy=default.target

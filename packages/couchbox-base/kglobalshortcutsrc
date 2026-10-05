@@ -1,5 +1,7 @@
 # System-wide shortcut defaults, read by kglobalaccel for users who have no
-# saved assignment yet. Format: active,default,description.
+# saved assignment yet. Format: active,default,description. kglobalaccel
+# doesn't always honour them, so couchbox-shortcuts (a user service) clears
+# every "none" entry here again at each login.
 #
 # A short Home or Menu press belongs to the app in front (Kodi's home screen
 # and context menu, Plezy's Home tab); a long press is the system action,
@@ -25,3 +27,4 @@ playpausemedia=none,Media Play,Play/Pause media playback
 previousmedia=none,Media Previous,Media playback previous
 seekbackwardmedia=none,Media Rewind,Media playback seek backward 5s
 seekforwardmedia=none,Media Fast Forward,Media playback seek forward 5s
+stopmedia=none,Media Stop,Stop media playback

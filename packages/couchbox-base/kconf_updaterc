@@ -1,0 +1,10 @@
+# Plasma's kconf_update runs every update script it hasn't run for a user,
+# including Plasma 5 to 6 migrations on a brand-new account.
+# plasma6.0-remove-old-shortcuts deletes every plasmashell shortcut outside its
+# allowlist, which takes all four of Bigscreen's (the home overlay on Meta+O
+# among them) on the first login; at the next start Bigscreen registers them
+# again with its own defaults, plain Home Page and Menu, overriding
+# /etc/xdg/kglobalshortcutsrc. couchbox has no Plasma 5 settings to migrate, so
+# new accounts start with it marked done.
+[plasma6.0-remove-old-shortcuts.upd]
+done=plasma6.0-remove-old-shortcuts
