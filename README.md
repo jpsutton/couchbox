@@ -24,6 +24,7 @@ both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 | Kodi, with the Jellyfin add-ons `jellyfin-kodi` and `JellyCon` | `extra` and AUR |
 | Plezy (native Flutter client for Plex, Jellyfin and Emby; TV mode and fullscreen preset), patched for the remote and TV | `plezy-couchbox` |
 | YouTube, TV interface (`youtube.com/tv` with a TV user agent; account picker, Link with TV code) | `couchbox-youtube` |
+| IPTV: free internet TV ([iptv-org](https://github.com/iptv-org/iptv)'s channels) in a channel guide, with a nightly refresh of channels, streams and guide | `couchbox-iptv`, built from [couchbox-iptv](https://github.com/jpsutton/couchbox-iptv) |
 | ZeroTier (`zerotier-one`, enabled at boot) | `extra` |
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
 | HDMI/DisplayPort audio as the default output when present (a default you pick still wins) | `couchbox-base` (WirePlumber rule) |
@@ -65,6 +66,7 @@ packages/couchbox-base/   meta package and appliance config
 packages/kodi-addon-couchbox-shuffle/  Kodi context menu on shows and seasons: Shuffle one, Shuffle all
 packages/plezy-couchbox/  Plezy with couchbox's patches (Home key, Play/Pause, Display Scale); provides plezy
 packages/couchbox-youtube/  YouTube's TV interface (youtube.com/tv) in a fullscreen window on the system electron
+packages/couchbox-iptv/     IPTV app and its refresh job, built from github.com/jpsutton/couchbox-iptv at a tag
 packages/couchbox-wallpapers/  14 TV-friendly KDE wallpapers; Bigscreen's default slideshow rotates through them
 packages/couchbox-settings/  "couchbox" page in Bigscreen Settings (KCM); options in ~/.config/couchboxrc
                           (YouTube codecs, video settings for the hardware)
