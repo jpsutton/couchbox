@@ -1,14 +1,14 @@
 # Maintainer: Jared Sutton <jpsutton@protonmail.com>
 #
 # Meta package for the couchbox appliance. It pulls in the Bigscreen session
-# and the apps (Kodi, Plezy, YouTube), and ships the config that turns a plain
+# and the apps (Kodi, Plezy, YouTube, IPTV), and ships the config that turns a plain
 # Arch install into the appliance: autologin, service presets, and home-screen
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.10.2
+pkgver=0.11.0
 pkgrel=1
-pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube)"
+pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, YouTube, IPTV)"
 arch=(any)
 license=(MIT)
 depends=(
@@ -33,6 +33,8 @@ depends=(
   plezy-couchbox
   # YouTube's TV interface (packages/couchbox-youtube)
   couchbox-youtube
+  # Free internet TV with a channel guide (packages/couchbox-iptv)
+  couchbox-iptv
   # Home-screen wallpapers for Bigscreen's default slideshow
   couchbox-wallpapers
   # The couchbox page in Bigscreen Settings (packages/couchbox-settings)
