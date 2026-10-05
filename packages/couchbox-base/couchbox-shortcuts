@@ -50,9 +50,19 @@ def apply(kglobalaccel):
     return cleared
 
 
+def connect(bus, attempts=60):
+    """kglobalaccel, once Plasma has started it (it isn't bus-activatable)."""
+    for _ in range(attempts):
+        try:
+            obj = bus.get_object("org.kde.kglobalaccel", "/kglobalaccel")
+            return dbus.Interface(obj, "org.kde.KGlobalAccel")
+        except dbus.DBusException:
+            time.sleep(2)
+    sys.exit("kglobalaccel never appeared on the session bus")
+
+
 def main():
-    bus = dbus.SessionBus()
-    kglobalaccel = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/kglobalaccel"), "org.kde.KGlobalAccel")
+    kglobalaccel = connect(dbus.SessionBus())
     for delay in (0, 90):
         time.sleep(delay)
         apply(kglobalaccel)

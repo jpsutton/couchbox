@@ -1,10 +1,13 @@
 [Unit]
 Description=couchbox: keep the shortcuts couchbox frees for apps unbound
-After=plasma-kglobalaccel.service
+# With the Plasma session: kglobalaccel isn't bus-activatable, and the script
+# also waits for it to appear.
+PartOf=graphical-session.target
+After=graphical-session.target plasma-kglobalaccel.service
 
 [Service]
 Type=exec
 ExecStart=/usr/bin/couchbox-shortcuts
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

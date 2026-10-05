@@ -117,7 +117,8 @@ package() {
   # Re-applies the "none" shortcuts in /etc/xdg/kglobalshortcutsrc at login.
   install -Dm755 couchbox-shortcuts "$pkgdir/usr/bin/couchbox-shortcuts"
   install -Dm644 couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/couchbox-shortcuts.service"
-  ln -s ../couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/default.target.wants/couchbox-shortcuts.service"
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../couchbox-shortcuts.service "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/couchbox-shortcuts.service"
   install -Dm644 50-couchbox-timezone.rules "$pkgdir/usr/share/polkit-1/rules.d/50-couchbox-timezone.rules"
   install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
   install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"
