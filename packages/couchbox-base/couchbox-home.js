@@ -15,6 +15,26 @@
 // From the home screen, with no Bigscreen overlay or sidebar open: bring back
 // the app that was last in front, if it is still running.
 
+// Apps that want to know when they are minimized: on Wayland a client isn't
+// told, and couchbox-iptv stops its stream while out of sight. By window
+// resource class, the D-Bus service to call with Hidden or Shown.
+const notifyMinimized = {
+    "org.couchbox.iptv": "org.couchbox.iptv",
+};
+
+function watchMinimized(w) {
+    const service = notifyMinimized[w.resourceClass];
+    if (!service) {
+        return;
+    }
+    w.minimizedChanged.connect(function () {
+        callDBus(service, "/org/couchbox/iptv", "org.couchbox.iptv.Window", w.minimized ? "Hidden" : "Shown");
+    });
+}
+
+workspace.windowList().forEach(watchMinimized);
+workspace.windowAdded.connect(watchMinimized);
+
 // The app window last in front (not plasmashell, not Bigscreen Settings).
 let lastApp = null;
 
