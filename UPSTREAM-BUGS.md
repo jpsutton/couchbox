@@ -6,7 +6,7 @@ couchbox workaround; remove the workaround when the upstream fix ships.
 To add a bug, add a row to the summary and a section below it. When you file
 one, set its status and put the bug link in its section.
 
-Last updated: 2026-10-03
+Last updated: 2026-10-06
 
 ## Summary
 
@@ -36,6 +36,7 @@ Last updated: 2026-10-03
 | 22 | Remote Back does not close the time zone, time and date pickers | plasma-bigscreen 6.7.5 and master | Low | None yet; use the on-screen Back button. couchbox sets the time zone automatically | Not filed |
 | 23 | Stop key does nothing in the video player | plezy 2.22.0 | Low | Patch `packages/plezy-couchbox/0004-media-stop-key.patch` (in `plezy-couchbox`); fire-blaster `[remap]` `KEY_STOP` to `KEY_STOPCD` | Not filed |
 | 24 | Plasma 5-to-6 shortcut cleanup runs on new accounts and deletes Bigscreen's shortcuts | plasma-workspace 6.7.5, plasma-bigscreen 6.7.5 | Medium | `/etc/skel/.config/kconf_updaterc` marks the script done | Not filed |
+| 25 | Remote input drops Shift: capitals arrive lowercase, `!` arrives as `1` | kdeconnect 26.08.1, kwin 6.7.5 | High | None yet; type passwords on the app's own on-screen keyboard, or sign in with Quick Connect | Not filed |
 
 ## 1. Home and Menu are bound globally, so apps never get those keys
 
@@ -561,6 +562,35 @@ Bigscreen's own defaults (plain Home Page and Menu), not the `none` that
   accounts never run it (checked: kconf_update skips a script listed in
   `done`). An account that already ran it gets the two `none` assignments
   back with kglobalaccel's `setForeignShortcutKeys`, as in bug 1.
+
+## 25. KDE Connect: remote input drops Shift
+
+Typing on a phone through KDE Connect's remote input reaches the box
+without Shift: capitals arrive as lowercase letters, and shifted symbols
+arrive as the unshifted key (`!` as `1`, `@` as `2`). A password typed this
+way into Ember's sign-in page looked right (it shows bullets) but the
+server refused it; typed into a visible field it came out all lowercase
+(confirmed by the user on the NUC, 2026-10-06).
+
+- **Where:** kdeconnect-kde `plugins/mousepad/waylandremoteinput.cpp`. KWin
+  6.7's EIS backend offers no text capability, so `keyboardSendText` falls
+  back to one keysym per character, and with a libei connection
+  `keyboardKeysym` turns each keysym into a key code with
+  `Xkb::keycodeFromKeysym`. That search finds the key at any shift level but
+  returns only the key code, and the key is then pressed with no modifier,
+  so `A` (level 1 of the A key) arrives as `a`. Characters on the AltGr
+  level are lost the same way. Read from the 26.08.1 source and master
+  (checked 2026-10-06); not reproduced on the BRIX, since that needs a
+  paired phone or a fake-input client.
+- **Fix:** have `keycodeFromKeysym` return the level too, and press and
+  release `KEY_LEFTSHIFT` (or the level's modifiers from the keymap) around
+  the key when the level needs it. (Without libei the plugin sends the
+  keysym through the portal's `NotifyKeyboardKeysym` instead; that path was
+  not checked.)
+- **couchbox workaround:** none yet. Ember's on-screen keyboard has Shift
+  and symbol pages for the remote, and Quick Connect avoids typing. Ember
+  could also offer a paste key fed by KDE Connect's clipboard sharing,
+  which carries the text exactly.
 
 ## Plezy pull requests
 
