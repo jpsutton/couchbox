@@ -58,12 +58,10 @@ N2807. It hasn't been tried on AMD hardware yet.
 
 ## Installing
 
-Each [release](https://github.com/jpsutton/couchbox/releases) has two
-installers to put on a USB stick:
-
-- **The full installer** (about 2 GiB) installs without a network.
-- **The netinstall** (about 340 MiB) downloads everything during the
-  install, over a cable or Wi-Fi.
+Each [release](https://github.com/jpsutton/couchbox/releases) has an
+installer to put on a USB stick (about 340 MiB). It downloads everything
+during the install, over a cable or Wi-Fi. An installer that works without a
+network can be built yourself; see [docs/install.md](docs/install.md).
 
 Boot the PC from the stick, pick the disk, and set a password if you want
 one. **The installer erases the whole disk.** When it's done, remove the

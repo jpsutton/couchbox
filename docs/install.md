@@ -8,9 +8,10 @@ For unattended installs, run `couchbox-install --yes /dev/<disk>` instead.
 
 The full ISO (`couchbox-*.iso`, about 2 GiB) needs no network. It carries an
 offline repo with every package the installer uses, for both Intel and AMD
-boxes; the list lives in `iso/target-packages`.
+boxes; the list lives in `iso/target-packages`. Releases don't carry it
+(after 2026.10.06); build it with `make repo iso`.
 
-The netinstall ISO (`couchbox-net-*.iso`) carries only the live system and
+The netinstall ISO (`couchbox-netinstall-*.iso`) carries only the live system and
 downloads the same package list during the install (about 1.5 GiB): Arch
 packages from Arch's geo mirror, couchbox packages from the latest GitHub
 release, checked against the couchbox key. Wired networks come up by

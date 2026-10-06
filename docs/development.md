@@ -40,7 +40,7 @@ On an Arch host with `devtools`, `archiso`, `pacman-contrib` and `grub` (netinst
 make check   # static checks, no root needed
 make repo    # clean-chroot builds into out/repo (asks for sudo)
 make iso     # out/couchbox-*.iso
-make netiso  # out/couchbox-net-*.iso; needs no `make repo`
+make netiso  # out/couchbox-netinstall-*.iso; needs no `make repo`
 ```
 
 ## Branches and CI
@@ -52,7 +52,7 @@ Changes go feature branch -> `staging` -> `release`, each step a pull request.
 |---|---|---|
 | PR into `staging` or `release` | `checks` | `scripts/check.sh` (same as `make check`), about a minute |
 | PR into `release` | `checks` | also: the PR must come from `staging` |
-| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), then the ISO in a privileged one (`scripts/ci/build-iso.sh`), and the netinstall ISO in parallel (`scripts/ci/build-iso.sh net`); all uploaded as artifacts |
+| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), and the netinstall ISO in parallel in a privileged one (`scripts/ci/build-iso.sh net`, the `iso` job); both uploaded as artifacts. The full ISO isn't built in CI |
 | merge into `release` | `release` | no rebuild: takes the PR's build artifacts, signs the packages and repo database, tags `YYYY.MM.DD`, and publishes a GitHub Release |
 
 Merge staging -> release PRs with **Create a merge commit**: the release
@@ -61,9 +61,9 @@ refuses to publish if the merged tree differs from what was built.
 
 ## Releases
 
-Each release carries both ISOs (the full one when it fits GitHub's 2 GiB asset
-limit) and the couchbox pacman repo: the packages, a detached `.sig` for each, and the signed
-`couchbox.db`. Installed boxes use it as
+Each release carries the netinstall ISO and the couchbox pacman repo: the
+packages, a detached `.sig` for each, and the signed `couchbox.db`. Installed
+boxes use it as
 
 ```
 [couchbox]
