@@ -8,7 +8,7 @@
 #                         (iso/target-packages plus all dependencies, the
 #                         couchbox repo from scripts/build-repo.sh included),
 #                         so installs need no network.
-#   build-iso.sh net      out/couchbox-net-*.iso. No offline repo: the
+#   build-iso.sh net      out/couchbox-netinstall-*.iso. No offline repo: the
 #                         installer downloads the target from Arch's mirrors
 #                         and the signed couchbox repo on GitHub releases.
 #                         Adds Wi-Fi (iwd) and network firmware
@@ -35,7 +35,7 @@ else
   # GRUB reads the kernel and initramfs from the ISO 9660 file system.
   # systemd-boot can't, so mkarchiso would also copy both (about 50 MiB) into
   # the EFI partition.
-  profile=$work/profile-net iso_work=$work/iso-net iso_name=couchbox-net bootmode=uefi.grub
+  profile=$work/profile-net iso_work=$work/iso-net iso_name=couchbox-netinstall bootmode=uefi.grub
 fi
 
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
