@@ -6,6 +6,9 @@ TV goes to sleep on "no signal". This switches power-profiles-daemon to
 power-saver while every connected output is off, and back to the profile
 that was active before (normally balanced) when one comes back on.
 
+On Bay Trail and Cherry Trail GPUs it also holds the GPU's clock floor at
+its efficient frequency while the screen is on (see gpu_floor).
+
 DPMS changes send no uevent, so the connectors' sysfs state is polled.
 """
 import glob
@@ -35,6 +38,34 @@ def screen_on():
     return False
 
 
+def gpu_floor(on):
+    """Bay Trail and Cherry Trail (the GPUs with gt_vlv_rpe_freq_mhz): the
+    clock governor leaves the GPU near its floor (187 MHz on an N2807) for
+    light, steady work like compositing video, and KWin then misses
+    refreshes: about 52 of 60 a second, with frames dropped and late. A
+    floor at RPe, the efficient frequency (646 MHz there), keeps all 60.
+    An idle GPU still drops to RC6, so the higher floor costs little. While
+    the screen sleeps the floor goes back to the hardware minimum (RPn).
+    Checked on every poll, as i915 may come up after this service."""
+    for rpe_path in glob.glob("/sys/class/drm/card*/gt_vlv_rpe_freq_mhz"):
+        card = os.path.dirname(rpe_path)
+        try:
+            with open(rpe_path) as f:
+                rpe = f.read().strip()
+            with open(os.path.join(card, "gt_RPn_freq_mhz")) as f:
+                rpn = f.read().strip()
+            want = rpe if on else rpn
+            min_path = os.path.join(card, "gt_min_freq_mhz")
+            with open(min_path) as f:
+                if f.read().strip() == want:
+                    continue
+            with open(min_path, "w") as f:
+                f.write(want)
+            print(f"{os.path.basename(card)}: GPU clock floor {want} MHz", flush=True)
+        except OSError as e:
+            print(f"{card}: could not set the GPU clock floor: {e}", file=sys.stderr, flush=True)
+
+
 def profile(new=None):
     args = ["powerprofilesctl", "set", new] if new else ["powerprofilesctl", "get"]
     result = subprocess.run(args, capture_output=True, text=True)
@@ -49,6 +80,7 @@ def main():
     was_on = True
     while True:
         on = screen_on()
+        gpu_floor(on)
         if on != was_on:
             if not on:
                 current = profile()

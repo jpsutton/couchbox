@@ -21,3 +21,16 @@ own defaults. Nothing resets the settings later, so changes made on the page
 or inside Plezy or Kodi stay; "Detect hardware again" on the page re-runs the
 probe. A change on the page reaches a client that is running once it exits,
 because both rewrite their settings files while they run.
+
+## GPU clock on Bay Trail and Cherry Trail
+
+These GPUs' clock governor leaves the GPU near its lowest frequency (187 MHz
+on the N2807) for light, steady work like compositing video, and KWin then
+misses refreshes: Ember's 29.97 fps Live TV got about 52 of 60 refreshes a
+second, with frames dropped and late. `couchbox-power-profile` (the
+power-saver service in `couchbox-base`) raises the GPU's clock floor to its
+efficient frequency (RPe, 646 MHz on the N2807) while the screen is on, which
+keeps all 60, and drops it back to the hardware minimum while the screen
+sleeps. An idle GPU still powers down, so the higher floor costs little. It
+applies only to GPUs that report an RPe (`gt_vlv_rpe_freq_mhz` in sysfs), so
+other hardware is untouched.
