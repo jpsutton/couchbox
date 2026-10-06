@@ -165,9 +165,16 @@ SSH; root stays locked. Use `--yes` to skip the prompts, which leaves the
 If the box shows "Reboot and select proper boot device" after the install,
 the firmware is trying a legacy (CSM) boot of the disk. Pick the disk's UEFI
 entry ("UEFI OS", "Linux Boot Manager" or "UEFI: <disk>") in the firmware's
-boot menu, or turn CSM off. Some AMI firmware (seen on a Bay Trail BRIX) also
-drops the boot entry the installer creates; the box then boots through the
-fallback loader, `\EFI\BOOT\BOOTX64.EFI`, which the installer also writes.
+boot menu, or turn CSM off. Some AMI firmware (seen on a Bay Trail BRIX and a
+Foxconn AT-5570) also drops the boot entry the installer creates. The BRIX
+then boots through the fallback loader, `\EFI\BOOT\BOOTX64.EFI`, which the
+installer also writes; the Foxconn lands in its built-in EFI shell instead,
+which runs the `startup.nsh` the installer puts on the ESP to start
+systemd-boot. `bootctl install` recreates the entry.
+
+The boot shows the kernel's messages and systemd's service status until the
+Bigscreen session starts: no `quiet`, so a slow disk never means minutes of
+black screen.
 
 ## How the tiles work
 
