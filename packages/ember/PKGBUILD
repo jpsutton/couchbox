@@ -1,0 +1,42 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# ember: a Jellyfin client that browses like Kodi's Amber skin (vertical
+# menu, list views with a details pane), for a TV remote. Built from
+# https://github.com/jpsutton/ember at a tag; bump pkgver to follow a new one.
+
+pkgname=ember
+pkgver=0.1.8
+pkgrel=1
+pkgdesc="Jellyfin client with Kodi Amber-style list navigation, for couchbox"
+arch=(x86_64)
+url="https://github.com/jpsutton/ember"
+license=(GPL-3.0-only OFL-1.1 LicenseRef-UFL-1.0)
+depends=(
+  qt6-base qt6-declarative qt6-websockets glibc libgcc libstdc++ hicolor-icon-theme
+  kconfig kcoreaddons kdbusaddons kwindowsystem qcoro
+  # Video: mpv renders into a Wayland subsurface through EGL
+  mpv wayland libglvnd
+)
+makedepends=(cmake ninja git extra-cmake-modules wayland-protocols)
+source=("$pkgname::git+https://github.com/jpsutton/ember.git#tag=v$pkgver")
+sha256sums=(SKIP)
+
+build() {
+  cmake -S $pkgname -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
+}
+
+check() {
+  QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+}
+
+package() {
+  # Installs /usr/bin/ember, the tile (org.couchbox.ember.desktop, which
+  # matches the window's app ID) and its icon.
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 $pkgname/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  # The fonts built into the binary (Amber's Ubuntu Condensed and Bebas Neue).
+  install -Dm644 $pkgname/fonts/LICENSE-*.txt -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
