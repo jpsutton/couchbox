@@ -7,9 +7,9 @@ interface so far, with more to come. You switch between apps from the couch,
 and Bluetooth remotes control the box. A built-in ZeroTier client reaches a
 home media server from any network.
 
-The build produces two installer ISOs: a full one that installs offline, and
-a small netinstall one that downloads everything during the install. You boot
-either one, pick a disk, and get a finished box.
+Releases carry a small netinstall ISO that downloads everything during the
+install; a full ISO that installs offline can still be built locally. You
+boot it, pick a disk, and get a finished box.
 
 **Status:** runs on an Intel NUC (Skylake, NUC6i5SYB), and installed from the
 netinstall ISO on a Gigabyte BRIX (Bay Trail Celeron N2807). Installs from
@@ -93,7 +93,7 @@ On an Arch host with `devtools`, `archiso`, `pacman-contrib` and `grub` (netinst
 make check   # static checks, no root needed
 make repo    # clean-chroot builds into out/repo (asks for sudo)
 make iso     # out/couchbox-*.iso
-make netiso  # out/couchbox-net-*.iso; needs no `make repo`
+make netiso  # out/couchbox-netinstall-*.iso; needs no `make repo`
 ```
 
 ## Branches and CI
@@ -105,7 +105,7 @@ Changes go feature branch -> `staging` -> `release`, each step a pull request.
 |---|---|---|
 | PR into `staging` or `release` | `checks` | `scripts/check.sh` (same as `make check`), about a minute |
 | PR into `release` | `checks` | also: the PR must come from `staging` |
-| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), then the ISO in a privileged one (`scripts/ci/build-iso.sh`), and the netinstall ISO in parallel (`scripts/ci/build-iso.sh net`); all uploaded as artifacts |
+| PR into `release` | `build` | every package in an `archlinux:base-devel` container (`scripts/ci/build-packages.sh`), and the netinstall ISO in parallel in a privileged one (`scripts/ci/build-iso.sh net`, the `iso` job); both uploaded as artifacts. The full ISO isn't built in CI |
 | merge into `release` | `release` | no rebuild: takes the PR's build artifacts, signs the packages and repo database, tags `YYYY.MM.DD`, and publishes a GitHub Release |
 
 Merge staging -> release PRs with **Create a merge commit**: the release
@@ -114,9 +114,9 @@ refuses to publish if the merged tree differs from what was built.
 
 ## Releases
 
-Each release carries both ISOs (the full one when it fits GitHub's 2 GiB asset
-limit) and the couchbox pacman repo: the packages, a detached `.sig` for each, and the signed
-`couchbox.db`. Installed boxes use it as
+Each release carries the netinstall ISO and the couchbox pacman repo: the
+packages, a detached `.sig` for each, and the signed `couchbox.db`. Installed
+boxes use it as
 
 ```
 [couchbox]
@@ -139,9 +139,10 @@ For unattended installs, run `couchbox-install --yes /dev/<disk>` instead.
 
 The full ISO (`couchbox-*.iso`, about 2 GiB) needs no network. It carries an
 offline repo with every package the installer uses, for both Intel and AMD
-boxes; the list lives in `iso/target-packages`.
+boxes; the list lives in `iso/target-packages`. Releases don't carry it
+(after 2026.10.06); build it with `make repo iso`.
 
-The netinstall ISO (`couchbox-net-*.iso`) carries only the live system and
+The netinstall ISO (`couchbox-netinstall-*.iso`) carries only the live system and
 downloads the same package list during the install (about 1.5 GiB): Arch
 packages from Arch's geo mirror, couchbox packages from the latest GitHub
 release, checked against the couchbox key. Wired networks come up by
