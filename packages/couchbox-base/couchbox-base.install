@@ -11,4 +11,15 @@ post_upgrade() {
   if [[ -L etc/systemd/system/multi-user.target.wants/couchbox-power-profile.service ]]; then
     systemctl reenable couchbox-power-profile.service
   fi
+  # Boxes installed before couchbox's own preset was the only one applied can
+  # have systemd-networkd enabled beside NetworkManager. It manages nothing,
+  # but its wait-online unit holds network-online.target (and ZeroTier) for
+  # its 2-minute timeout at every boot, then fails.
+  if [[ -L etc/systemd/system/multi-user.target.wants/NetworkManager.service ]] &&
+    [[ -e etc/systemd/system/multi-user.target.wants/systemd-networkd.service ||
+      -e etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service ]]; then
+    systemctl disable systemd-networkd-wait-online.service systemd-networkd.service systemd-networkd.socket \
+      systemd-networkd-varlink.socket systemd-networkd-varlink-metrics.socket systemd-networkd-resolve-hook.socket \
+      2>/dev/null || true
+  fi
 }

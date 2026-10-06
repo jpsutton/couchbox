@@ -25,6 +25,7 @@ both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 | Plezy (native Flutter client for Plex, Jellyfin and Emby; TV mode and fullscreen preset), patched for the remote and TV | `plezy-couchbox` |
 | YouTube, TV interface (`youtube.com/tv` with a TV user agent; account picker, Link with TV code) | `couchbox-youtube` |
 | IPTV: free internet TV ([iptv-org](https://github.com/iptv-org/iptv)'s channels) in a channel guide, with a nightly refresh of channels, streams and guide | `couchbox-iptv`, built from [couchbox-iptv](https://github.com/jpsutton/couchbox-iptv) |
+| Ember: Jellyfin client that browses like Kodi's Amber skin (vertical menu, list views with a details pane), Quick Connect sign-in | `ember`, built from [ember](https://github.com/jpsutton/ember) |
 | ZeroTier (`zerotier-one`, enabled at boot) | `extra` |
 | BlueZ, CEC (`libcec`), PipeWire, NetworkManager | `extra` |
 | HDMI/DisplayPort audio as the default output when present (a default you pick still wins) | `couchbox-base` (WirePlumber rule) |
@@ -55,8 +56,8 @@ Two settings make this work, both installed to `/etc/xdg`:
   `TurnOffDisplayIdleTimeoutSec`.
 
 Playback keeps the screen on. Plezy holds an inhibit through the desktop
-portal (`org.freedesktop.portal.Inhibit`), and Kodi holds one through Wayland
-idle-inhibit.
+portal (`org.freedesktop.portal.Inhibit`), Kodi holds one through Wayland
+idle-inhibit, and Ember holds `org.freedesktop.ScreenSaver.Inhibit`.
 
 ## Layout
 
@@ -67,6 +68,7 @@ packages/kodi-addon-couchbox-shuffle/  Kodi context menu on shows and seasons: S
 packages/plezy-couchbox/  Plezy with couchbox's patches (Home key, Play/Pause, Display Scale); provides plezy
 packages/couchbox-youtube/  YouTube's TV interface (youtube.com/tv) in a fullscreen window on the system electron
 packages/couchbox-iptv/     IPTV app and its refresh job, built from github.com/jpsutton/couchbox-iptv at a tag
+packages/ember/           Ember, the Jellyfin client, built from github.com/jpsutton/ember at a tag
 packages/couchbox-wallpapers/  14 TV-friendly KDE wallpapers; Bigscreen's default slideshow rotates through them
 packages/couchbox-settings/  "couchbox" page in Bigscreen Settings (KCM); options in ~/.config/couchboxrc
                           (YouTube codecs, video settings for the hardware)
@@ -165,9 +167,16 @@ SSH; root stays locked. Use `--yes` to skip the prompts, which leaves the
 If the box shows "Reboot and select proper boot device" after the install,
 the firmware is trying a legacy (CSM) boot of the disk. Pick the disk's UEFI
 entry ("UEFI OS", "Linux Boot Manager" or "UEFI: <disk>") in the firmware's
-boot menu, or turn CSM off. Some AMI firmware (seen on a Bay Trail BRIX) also
-drops the boot entry the installer creates; the box then boots through the
-fallback loader, `\EFI\BOOT\BOOTX64.EFI`, which the installer also writes.
+boot menu, or turn CSM off. Some AMI firmware (seen on a Bay Trail BRIX and a
+Foxconn AT-5570) also drops the boot entry the installer creates. The BRIX
+then boots through the fallback loader, `\EFI\BOOT\BOOTX64.EFI`, which the
+installer also writes; the Foxconn lands in its built-in EFI shell instead,
+which runs the `startup.nsh` the installer puts on the ESP to start
+systemd-boot. `bootctl install` recreates the entry.
+
+The boot shows the kernel's messages and systemd's service status until the
+Bigscreen session starts: no `quiet`, so a slow disk never means minutes of
+black screen.
 
 ## How the tiles work
 

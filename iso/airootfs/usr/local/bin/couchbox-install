@@ -407,6 +407,17 @@ echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/10-wheel
 chmod 440 /etc/sudoers.d/10-wheel
 
 bootctl install
+# Some AMI firmware (a Bay Trail BRIX, a Foxconn AT-5570) drops the boot entry
+# bootctl just made, and the Foxconn then lands in its built-in EFI shell,
+# which runs startup.nsh from any drive. Start systemd-boot from there.
+printf '%s\r\n' '@echo -off' \
+  '# couchbox: firmware that lost its boot entry falls back to this EFI shell' \
+  '# script; start systemd-boot from whichever drive holds it.' \
+  'for %i in 0 1 2 3 4 5 6 7 8 9' \
+  '  if exist fs%i:\EFI\systemd\systemd-bootx64.efi then' \
+  '    fs%i:\EFI\systemd\systemd-bootx64.efi' \
+  '  endif' \
+  'endfor' > /boot/startup.nsh
 cat > /boot/loader/loader.conf <<LOADER
 default couchbox.conf
 timeout 0
@@ -416,7 +427,7 @@ cat > /boot/loader/entries/couchbox.conf <<ENTRY
 title   couchbox
 linux   /vmlinuz-linux
 initrd  /initramfs-linux.img
-options root=PARTUUID=$root_partuuid rw quiet splash
+options root=PARTUUID=$root_partuuid rw
 ENTRY
 
 # Apply only couchbox's preset. `preset-all` would also turn on systemd's own
