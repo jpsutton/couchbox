@@ -39,24 +39,24 @@ def screen_on():
 
 
 def gpu_floor(on):
-    """Bay Trail and Cherry Trail (the GPUs with gt_vlv_rpe_freq_mhz): with
-    the clock floor at the hardware minimum (RPn, 187 MHz on an N2807), the
-    governor never raises the clock for compositing video. Each frame is a
-    short burst, so the GPU looks mostly idle, but at 187 MHz the burst
-    often misses the refresh deadline: KWin got about 52 of 60 refreshes a
-    second. With the floor at RP1 (312 MHz there) the governor ramps up and
-    down as it should and all 60 make it; a 646 MHz floor did no better.
-    It is a floor, not a fixed clock, and an idle GPU still powers down
-    (RC6). While the screen sleeps the floor goes back to RPn. Checked on
-    every poll, as i915 may come up after this service."""
-    for marker in glob.glob("/sys/class/drm/card*/gt_vlv_rpe_freq_mhz"):
-        card = os.path.dirname(marker)
+    """Bay Trail and Cherry Trail (the GPUs with gt_vlv_rpe_freq_mhz): the
+    clock governor barely raises the clock for video, whose work comes in
+    short bursts, one per frame; the GPU sat at its floor in every test. At
+    the hardware minimum (RPn, 187 MHz on an N2807) KWin got about 52 of 60
+    refreshes a second compositing 540p; 1080i broadcast TV, deinterlaced on
+    the GPU, dropped ~3 frames a second even at RP1 (312 MHz). The floor
+    goes to RPe, the efficient frequency (646 MHz there), which keeps both
+    smooth. An idle GPU still powers down (RC6), so it costs little; while
+    the screen sleeps the floor goes back to RPn. Checked on every poll, as
+    i915 may come up after this service."""
+    for rpe_path in glob.glob("/sys/class/drm/card*/gt_vlv_rpe_freq_mhz"):
+        card = os.path.dirname(rpe_path)
         try:
-            with open(os.path.join(card, "gt_RP1_freq_mhz")) as f:
-                rp1 = f.read().strip()
+            with open(rpe_path) as f:
+                rpe = f.read().strip()
             with open(os.path.join(card, "gt_RPn_freq_mhz")) as f:
                 rpn = f.read().strip()
-            want = rp1 if on else rpn
+            want = rpe if on else rpn
             min_path = os.path.join(card, "gt_min_freq_mhz")
             with open(min_path) as f:
                 if f.read().strip() == want:

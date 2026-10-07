@@ -24,17 +24,17 @@ because both rewrite their settings files while they run.
 
 ## GPU clock on Bay Trail and Cherry Trail
 
-With the GPU's clock floor at the hardware minimum (187 MHz on the N2807),
-these GPUs' clock governor never raises the clock for compositing video:
-each frame is a short burst, so the GPU looks mostly idle, but at 187 MHz
-the burst often misses the refresh deadline. KWin then misses refreshes:
-Ember's 29.97 fps Live TV got about 52 of 60 a second, with frames dropped
-and late.
+These GPUs' clock governor barely raises the clock for video, whose work
+comes in short bursts, one per frame: in every test the GPU sat at its floor.
+At the hardware minimum (187 MHz on the N2807) KWin got about 52 of 60
+refreshes a second showing Ember's 540p Live TV, with frames dropped and
+late. 1080i broadcast TV, decoded and deinterlaced on the GPU, still dropped
+about 3 frames a second with the floor at 312 MHz.
 
 `couchbox-power-profile` (the power-saver service in `couchbox-base`) raises
-the floor to RP1 (312 MHz on the N2807) while the screen is on, and drops it
-back to the minimum while the screen sleeps. With that floor the governor
-ramps up and down as it should, and all 60 refreshes make it; a 646 MHz
-floor did no better. It is a floor, not a fixed clock, and an idle GPU still
-powers down. It applies only to Bay Trail and Cherry Trail (GPUs that report
-`gt_vlv_rpe_freq_mhz` in sysfs), so other hardware is untouched.
+the floor to RPe, the efficient frequency (646 MHz on the N2807), while the
+screen is on, which keeps both smooth, and drops it back to the minimum while
+the screen sleeps. It is a floor, not a fixed clock, and an idle GPU still
+powers down, so it costs little. It applies only to Bay Trail and Cherry
+Trail (GPUs that report `gt_vlv_rpe_freq_mhz` in sysfs), so other hardware is
+untouched.
