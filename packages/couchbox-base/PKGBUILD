@@ -6,7 +6,7 @@
 # tiles.
 
 pkgname=couchbox-base
-pkgver=0.12.1
+pkgver=0.12.2
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Kodi, Plezy, Ember, YouTube, IPTV)"
 arch=(any)
@@ -81,6 +81,7 @@ source=(
   50-couchbox-timezone.rules
   90-couchbox-wifi-backup
   sysctl-couchbox-arp.conf
+  systemd-watchdog.conf
   kwinrc
   couchbox-home.json
   couchbox-home.js
@@ -95,7 +96,7 @@ source=(
   kconf_updaterc
   "${_tiles[@]}"
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   install -Dm644 sddm-couchbox.conf "$pkgdir/etc/sddm.conf.d/couchbox.conf"
@@ -134,6 +135,7 @@ package() {
   install -Dm644 50-couchbox-timezone.rules "$pkgdir/usr/share/polkit-1/rules.d/50-couchbox-timezone.rules"
   install -Dm755 90-couchbox-wifi-backup "$pkgdir/usr/lib/NetworkManager/dispatcher.d/90-couchbox-wifi-backup"
   install -Dm644 sysctl-couchbox-arp.conf "$pkgdir/usr/lib/sysctl.d/90-couchbox-arp.conf"
+  install -Dm644 systemd-watchdog.conf "$pkgdir/usr/lib/systemd/system.conf.d/90-couchbox-watchdog.conf"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"
   install -Dm644 fire-blaster.toml "$pkgdir/etc/fire-blaster/config.toml"
   install -Dm644 kglobalshortcutsrc "$pkgdir/etc/xdg/kglobalshortcutsrc"
