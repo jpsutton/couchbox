@@ -12,6 +12,14 @@ on:
 permissions:
   contents: read
 
+# staging is the head of the staging -> release pull request, so every merge
+# into staging pushes to it and starts a new full build. Only the newest head
+# matters (release publishes the build of the final head), so a push cancels
+# the build still running for the previous one.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   packages:
     runs-on: ubuntu-latest
