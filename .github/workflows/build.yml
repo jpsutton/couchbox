@@ -1,5 +1,6 @@
-# Full build on pull requests into release: every package, then the ISO, and
-# the netinstall ISO alongside (it needs no packages).
+# Full build on pull requests into release: every package, and the
+# netinstall ISO alongside (it needs no packages). Releases ship only the
+# netinstall ISO; the full offline ISO is still built locally (make iso).
 # workflow_dispatch runs it on any branch, for testing the build itself.
 name: build
 
@@ -10,6 +11,14 @@ on:
 
 permissions:
   contents: read
+
+# staging is the head of the staging -> release pull request, so every merge
+# into staging pushes to it and starts a new full build. Only the newest head
+# matters (release publishes the build of the final head), so a push cancels
+# the build still running for the previous one.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   packages:
@@ -52,46 +61,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  iso:
-    needs: packages
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: couchbox-repo
-          path: out/repo
-
-      # Privileged: mkarchiso (pacstrap) mounts /proc, /sys and /dev in the image root.
-      - name: Build ISO (archlinux container)
-        run: |
-          docker run --rm --privileged \
-            -v "$GITHUB_WORKSPACE:/src" \
-            -w /src archlinux:base-devel scripts/ci/build-iso.sh
-
-      # GitHub release assets are limited to 2 GiB each.
-      - name: ISO size
-        run: |
-          ls -la out/*.iso
-          size=$(stat -c %s out/*.iso)
-          echo "ISO: $((size / 1048576)) MiB" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$size" -ge 2147483648 ]; then
-            echo "::warning::ISO is over 2 GiB, the GitHub release asset limit"
-          fi
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: couchbox-iso
-          path: out/*.iso
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
-
   # The netinstall ISO downloads its target at install time, so it doesn't
-  # wait for the packages job.
-  netiso:
+  # wait for the packages job. (The job is "iso", the check release requires.)
+  iso:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -111,7 +83,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: couchbox-netiso
+          name: couchbox-netinstall-iso
           path: out/*.iso
           if-no-files-found: error
           retention-days: 14
