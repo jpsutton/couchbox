@@ -5,7 +5,7 @@
 # https://github.com/jpsutton/ember at a tag; bump pkgver to follow a new one.
 
 pkgname=ember
-pkgver=0.1.11
+pkgver=0.1.15
 pkgrel=1
 pkgdesc="Jellyfin client with Kodi Amber-style list navigation, for couchbox"
 arch=(x86_64)
