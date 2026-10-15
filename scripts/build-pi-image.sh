@@ -121,8 +121,20 @@ chmod 440 /etc/sudoers.d/10-wheel
 
 # The initramfs pacstrap made used autodetect on the build machine's
 # hardware. Make a generic one; later kernel updates on the Pi autodetect
-# the Pi itself.
-mkinitcpio -P -S autodetect
+# the Pi itself. (-P ignores -S, so name the image directly.)
+for kernel in /usr/lib/modules/*/pkgbase; do
+  mkinitcpio -k "$(basename "$(dirname "$kernel")")" -g /boot/initramfs-linux.img -S autodetect
+done
+
+# couchbox's services, as couchbox-install enables them: the units its
+# preset lists, and nothing else the packages' own presets would.
+if [[ -f /usr/lib/systemd/system-preset/80-couchbox.preset ]]; then
+  # shellcheck disable=SC2046  # one unit name per word
+  systemctl preset $(awk '$1 == "enable" {print $2}' /usr/lib/systemd/system-preset/80-couchbox.preset)
+fi
+if command -v couchbox-update-app-blacklist >/dev/null; then
+  couchbox-update-app-blacklist
+fi
 EOF
 
 if [[ -n $hook ]]; then

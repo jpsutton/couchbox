@@ -1,18 +1,18 @@
-# Raspberry Pi spike: aarch64 packages (mpv-rpi, Ember, couchbox-rpi) and a
-# flashable test image, built natively on an arm64 runner inside an Arch
-# Linux ARM container. Temporary; the real aarch64 build joins build.yml.
-name: rpi-spike
+# Raspberry Pi: the aarch64 couchbox repo and a flashable test image, built
+# natively on an arm64 runner inside an Arch Linux ARM container. Runs on
+# pushes to Raspberry Pi branches, and by hand on any branch.
+name: rpi
 
 on:
   push:
-    branches: [feat/rpi-spike]
+    branches: ['feat/rpi-*']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: rpi-spike-${{ github.ref }}
+  group: rpi-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,6 +27,13 @@ jobs:
           df -h /
 
       - uses: actions/checkout@v4
+        with:
+          path: couchbox
+
+      - uses: actions/checkout@v4
+        with:
+          repository: jpsutton/fire-blaster
+          path: fire-blaster
 
       # The generic aarch64 rootfs, checked against the Arch Linux ARM build
       # key before it becomes the build container.
@@ -45,24 +52,31 @@ jobs:
       - name: Build packages and image
         run: |
           sudo docker run --rm --privileged -v /dev:/dev \
-            -v "$GITHUB_WORKSPACE:/src" -w /src alarm:build \
-            scripts/ci/build-pi-spike.sh
+            -v "$GITHUB_WORKSPACE/couchbox:/src" \
+            -v "$GITHUB_WORKSPACE/fire-blaster:/fire-blaster" \
+            -e FIRE_BLASTER_SRC=/fire-blaster \
+            -w /src alarm:build scripts/ci/build-pi.sh
 
       - name: Disk after build
         if: always()
         run: df -h /
 
+      # Package file names carry the epoch (mpv-rpi-1:...), and artifact
+      # paths can't contain a colon: ship the repo as one tarball.
+      - name: Pack repo
+        run: tar -C couchbox/out -cf couchbox-aarch64-repo.tar repo
+
       - uses: actions/upload-artifact@v4
         with:
-          name: couchbox-rpi-spike-image
-          path: out/couchbox-rpi-spike.img.xz
+          name: couchbox-rpi-test-image
+          path: couchbox/out/couchbox-rpi-test.img.xz
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
 
       - uses: actions/upload-artifact@v4
         with:
-          name: couchbox-rpi-spike-repo
-          path: out/pi/
+          name: couchbox-aarch64-repo
+          path: couchbox-aarch64-repo.tar
           if-no-files-found: error
           retention-days: 14

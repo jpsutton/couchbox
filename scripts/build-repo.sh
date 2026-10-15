@@ -16,7 +16,14 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 work=$root/work
 chroot=$work/chroot
 repo=$root/out/repo
+# One repo per architecture: the aarch64 one (Raspberry Pi) is a database of
+# its own, since both carry packages of the same name.
+build_arch=$(uname -m)
 repo_name=couchbox
+[[ $build_arch == x86_64 ]] || repo_name=couchbox-$build_arch
+# The same compression everywhere (Arch Linux ARM's makepkg.conf defaults to
+# xz), so the globs below and the release assets match.
+export PKGEXT=.pkg.tar.zst
 
 mkdir -p "$work/aur" "$repo"
 
@@ -86,6 +93,8 @@ build_local() {
 
 while read -r name deps; do
   [[ -z $name || $name == \#* ]] && continue
+  # The AUR packages are Kodi's add-ons, which only the x86_64 repo carries.
+  [[ $build_arch == x86_64 ]] || continue
   if [[ -d $work/aur/$name/.git ]]; then
     git -C "$work/aur/$name" pull --ff-only
   else
@@ -113,6 +122,14 @@ fi
 # Packages that compile something (have a build() function) need the clean
 # chroot; config-only packages are built locally.
 for dir in "$root"/packages/*/; do
+  # Only what this architecture builds (mpv-rpi and couchbox-rpi are
+  # aarch64 only; plezy-couchbox is x86_64 only).
+  # shellcheck disable=SC1091,SC2154  # each PKGBUILD in turn sets arch
+  archs=$(cd "$dir" && source ./PKGBUILD && echo " ${arch[*]} ")
+  if [[ $archs != *" $build_arch "* && $archs != *" any "* ]]; then
+    echo "==> $dir: not built for $build_arch"
+    continue
+  fi
   if grep -q '^build()' "$dir/PKGBUILD"; then
     build_chroot "$dir"
   else

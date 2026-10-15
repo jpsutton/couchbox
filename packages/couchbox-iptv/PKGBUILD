@@ -10,7 +10,7 @@ pkgver=0.3.1
 pkgrel=1
 _flutter_ver=3.47.1
 pkgdesc="Free internet TV with a channel guide, for couchbox"
-arch=(x86_64)
+arch=(x86_64 aarch64)
 url="https://github.com/jpsutton/couchbox-iptv"
 license=(GPL-3.0-only)
 depends=(
@@ -20,23 +20,43 @@ depends=(
   # The refresh job eases off while something plays (pactl)
   libpulse
 )
-makedepends=(clang cmake ninja fvm git pkgconf)
+makedepends=(clang cmake ninja git pkgconf)
+# fvm fetches the pinned Flutter on x86_64; Arch Linux ARM has no fvm, so
+# aarch64 builds Flutter's own checkout at the same tag (it downloads its
+# arm64 engine on first run). Flutter can't cross-compile Linux desktop apps.
+makedepends_x86_64=(fvm)
 source=("$pkgname::git+https://github.com/jpsutton/couchbox-iptv.git#tag=v$pkgver")
+source_aarch64=("flutter::git+https://github.com/flutter/flutter.git#tag=$_flutter_ver")
 sha256sums=(SKIP)
+sha256sums_aarch64=(SKIP)
+
+# The pinned Flutter and Dart, whichever way they were fetched.
+_flutter() {
+  if [[ $CARCH == x86_64 ]]; then fvm flutter "$@"; else "$srcdir/flutter/bin/flutter" "$@"; fi
+}
+_dart() {
+  if [[ $CARCH == x86_64 ]]; then fvm dart "$@"; else "$srcdir/flutter/bin/dart" "$@"; fi
+}
+# Flutter's name for the build's target, in build/linux/<arch>/.
+_flutter_arch() {
+  if [[ $CARCH == x86_64 ]]; then echo x64; else echo arm64; fi
+}
 
 prepare() {
   cd $pkgname
   export FVM_CACHE_PATH="$srcdir/fvm"
-  fvm install $_flutter_ver
-  fvm global $_flutter_ver
-  fvm flutter --disable-analytics
+  if [[ $CARCH == x86_64 ]]; then
+    fvm install $_flutter_ver
+    fvm global $_flutter_ver
+  fi
+  _flutter --disable-analytics
 }
 
 build() {
   cd $pkgname
   export FVM_CACHE_PATH="$srcdir/fvm"
-  fvm flutter build linux --release
-  fvm dart build cli -o build/refresh
+  _flutter build linux --release
+  _dart build cli -o build/refresh
 }
 
 package() {
@@ -45,7 +65,7 @@ package() {
   # The app: Flutter's bundle as is (it finds lib/ and data/ next to the
   # binary), started through /usr/bin.
   install -d "$pkgdir/usr/lib/$pkgname"
-  cp -a build/linux/x64/release/bundle/. "$pkgdir/usr/lib/$pkgname/"
+  cp -a "build/linux/$(_flutter_arch)/release/bundle/." "$pkgdir/usr/lib/$pkgname/"
   install -d "$pkgdir/usr/bin"
   ln -s "/usr/lib/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
 
