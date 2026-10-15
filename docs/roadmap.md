@@ -26,9 +26,16 @@ Ideas and open work.
   on-screen setup overlay.
 - **Hotel captive portals.** Test the NetworkManager captive-portal flow
   inside Bigscreen, which has no normal browser window.
-- **aarch64.** archiso can build UEFI AArch64 ISOs. That covers boards with
-  EDK2 firmware, such as RK3588 boards, but not a stock Raspberry Pi 5.
-  Needs `iso/packages.aarch64` and a kernel choice in the installer.
+- **Raspberry Pi video on display planes.** On the Pi, Ember draws every frame
+  with the GPU (libmpv's render API), and the V3D GPU is the bottleneck:
+  1080p30 still drops ~4 frames a second, and 4K needs more. mpv's
+  `vo=dmabuf-wayland` hands the decoder's buffer to the compositor, which can
+  show it on a display plane with no GPU work, as Kodi and Raspberry Pi OS
+  do. That is a change to how Ember embeds video (see
+  [raspberry-pi.md](raspberry-pi.md)).
+- **Other aarch64 boards.** archiso can build UEFI AArch64 ISOs. That covers
+  boards with EDK2 firmware, such as RK3588 boards. Needs
+  `iso/packages.aarch64` and a kernel choice in the installer.
 - **Applications grid on the home screen.** Bigscreen shows each category as
   one horizontal row, and 6.7.5 has no setting for a grid. A wrapping grid was
   tried on the BRIX (6 columns at 1920 wide) and reverted. 2D navigation

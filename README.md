@@ -55,6 +55,10 @@ couchbox needs a 64-bit Intel or AMD PC that boots in UEFI mode. It runs on
 an Intel NUC (NUC6i5SYB) and on a Gigabyte BRIX with a low-power Celeron
 N2807. It hasn't been tried on AMD hardware yet.
 
+It also runs on the Raspberry Pi 4, from an SD-card image instead of the
+installer; the Pi 5 and Pi 3 are best effort. See
+[docs/raspberry-pi.md](docs/raspberry-pi.md).
+
 ## Installing
 
 Each [release](https://github.com/jpsutton/couchbox/releases) has an
@@ -74,6 +78,8 @@ when the PC won't start after installing, see
 
 - [docs/install.md](docs/install.md): the installers, start-up problems, and
   installing on an existing Arch system.
+- [docs/raspberry-pi.md](docs/raspberry-pi.md): the Raspberry Pi image, its
+  first-boot setup, and how video decoding works there.
 - [docs/components.md](docs/components.md): every piece of couchbox and the
   package it comes from.
 - [docs/home-screen.md](docs/home-screen.md): which apps get a tile, and how
