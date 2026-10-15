@@ -25,6 +25,8 @@ makedepends=(clang cmake ninja git pkgconf)
 # aarch64 builds Flutter's own checkout at the same tag (it downloads its
 # arm64 engine on first run). Flutter can't cross-compile Linux desktop apps.
 makedepends_x86_64=(fvm)
+# Flutter unpacks its Dart SDK with unzip on first run.
+makedepends_aarch64=(unzip)
 source=("$pkgname::git+https://github.com/jpsutton/couchbox-iptv.git#tag=v$pkgver")
 source_aarch64=("flutter::git+https://github.com/flutter/flutter.git#tag=$_flutter_ver")
 sha256sums=(SKIP)
