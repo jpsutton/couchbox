@@ -38,3 +38,20 @@ the screen sleeps. It is a floor, not a fixed clock, and an idle GPU still
 powers down, so it costs little. It applies only to Bay Trail and Cherry
 Trail (GPUs that report `gt_vlv_rpe_freq_mhz` in sysfs), so other hardware is
 untouched.
+
+## Raspberry Pi and other V4L2 boards
+
+A Raspberry Pi has no VA-API; its decoders are V4L2 devices. When `vainfo`
+finds nothing, the probe lists the V4L2 decoders instead (`v4l2-ctl
+--list-formats-out` on each `/dev/video*`). On a Pi 4 that is H.264
+(bcm2835-codec) and HEVC Main and Main10 (rpi-hevc-dec). It then sets:
+
+| Key | Pi value | Why |
+|---|---|---|
+| Transcode* | false for what the decoders take, true for the rest | HEVC plays directly; AV1 and VP9 are converted |
+| PlezyScaling | fast | the V3D GPU is the bottleneck |
+| Hwdec | drm,v4l2m2m | mpv's auto-safe never tries V4L2 decoders; both modes are zero-copy |
+| VideoSync | audio | display-resample redraws every frame at the 60 Hz refresh: on a Pi 4 it dropped ~17 frames a second of 1080p30, audio timing ~4 |
+
+Ember and couchbox-iptv read Hwdec and VideoSync; on other boxes the keys
+are absent and the apps keep their own defaults.

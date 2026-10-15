@@ -11,6 +11,14 @@ Bigscreen Settings:
   TranscodeHEVC10   true | false     ... HEVC 10-bit (Jellyfin for Kodi only)
   TranscodeAV1      true | false     ... AV1
   TranscodeVP9      true | false     ... VP9 (Jellyfin for Kodi only)
+  Hwdec             mpv hwdec list   decoders to try (Ember, couchbox-iptv);
+                                     only written for V4L2 boards such as the
+                                     Raspberry Pi, where mpv's auto-safe
+                                     never picks the V4L2 decoders
+  VideoSync         audio | display-resample
+                                     mpv's video-sync; only written for V4L2
+                                     boards: display-resample redraws every
+                                     refresh, too much for the Pi's GPU
 
   couchbox-video-profile firstboot   probe, once per user (the user service)
   couchbox-video-profile probe       detect the hardware, reset [Video] to the
@@ -97,8 +105,77 @@ def decode_profiles():
     return set(re.findall(r"(VAProfile\w+)\s*:\s*VAEntrypointVLD", out))
 
 
+# V4L2 decoder input formats (fourcc) -> what they decode. The Raspberry Pi
+# has no VA-API: bcm2835-codec decodes H.264 (stateful, mpv's v4l2m2m) and
+# rpi-hevc-dec decodes HEVC Main and Main10 (stateless request API, mpv's drm
+# hwdec through ffmpeg-rpi).
+V4L2_FORMATS = {
+    "H264": ["H.264"],
+    "S265": ["HEVC", "HEVC 10-bit"],
+    "HEVC": ["HEVC", "HEVC 10-bit"],
+    "VP90": ["VP9"],
+    "AV1F": ["AV1"],
+    "MPG2": ["MPEG-2"],
+    "MG2S": ["MPEG-2"],
+}
+# Decodes -> the [Video] key that turns off server conversion for it.
+TRANSCODE_KEYS = {"TranscodeHEVC": "HEVC", "TranscodeHEVC10": "HEVC 10-bit",
+                  "TranscodeAV1": "AV1", "TranscodeVP9": "VP9"}
+
+
+def v4l2_decodes():
+    """Codecs the V4L2 memory-to-memory decoders take, in a stable order;
+    empty without any. A decoder's output queue (what it is fed) lists only
+    compressed formats, so encoders and the ISP, fed raw frames, don't count."""
+    found = []
+    for dev in sorted(f for f in os.listdir("/dev") if re.fullmatch(r"video\d+", f)):
+        try:
+            out = subprocess.run(["v4l2-ctl", "-d", f"/dev/{dev}", "--list-formats-out"],
+                                 capture_output=True, text=True, timeout=5).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        for fourcc in re.findall(r"\[\d+\]: '(\w{4})'", out):
+            for codec in V4L2_FORMATS.get(fourcc, []):
+                if codec not in found:
+                    found.append(codec)
+    order = ["H.264", "HEVC", "HEVC 10-bit", "VP9", "AV1", "MPEG-2"]
+    return sorted(found, key=order.index)
+
+
+def probe_v4l2(cfg, decodes):
+    """A board whose decoders are V4L2 only (the Raspberry Pi). Its GPU is
+    weak next to the decoders: hardware-decode what they take, convert the
+    rest on the server, and keep mpv's GPU work down."""
+    video = cfg["Video"]
+    video["PlezyScaling"] = "fast"
+    for key, codec in TRANSCODE_KEYS.items():
+        video[key] = "false" if codec in decodes else "true"
+    # drm first: the request-API decoders (HEVC) export frames mpv can show
+    # without a copy; the stateful ones (H.264) go through v4l2m2m, also
+    # without a copy. mpv tries them in order for each codec.
+    video["Hwdec"] = "drm,v4l2m2m"
+    # Measured on a Pi 4 (1080p30 H.264, Ember): display-resample redraws
+    # every frame at the 60 Hz refresh and dropped ~17 frames a second with
+    # the GPU at 87%; timed to audio, ~4.
+    video["VideoSync"] = "audio"
+
+
 def probe():
     profiles = decode_profiles()
+    if not profiles:
+        decodes = v4l2_decodes()
+        if decodes:
+            cfg = read_config()
+            for section in ("Video", "Hardware"):
+                if not cfg.has_section(section):
+                    cfg.add_section(section)
+            probe_v4l2(cfg, decodes)
+            cfg["Hardware"]["Decodes"] = ", ".join(decodes)
+            cfg["Hardware"]["LowPower"] = "true"
+            cfg["Hardware"]["Probed"] = time.strftime("%Y-%m-%d")
+            write_config(cfg)
+            log(f"V4L2 hardware decodes: {cfg['Hardware']['Decodes']}")
+            return
     # The rule for a low-power GPU: no hardware HEVC decode. That is Bay
     # Trail and other Atoms of its age, Intel before Skylake, older AMD, and
     # anything without VA-API (VMs). Such GPUs also choke on mpv's default
@@ -112,6 +189,9 @@ def probe():
         cfg.add_section("Video")
     video = cfg["Video"]
     video["PlezyScaling"] = "fast" if low_power else "quality"
+    # VA-API boxes keep the clients' own decoder choice and timing.
+    video.pop("Hwdec", None)
+    video.pop("VideoSync", None)
     # Capable GPUs keep today's behavior: the CPU handles what the GPU can't.
     for key, (profile, *_rest) in CODECS.items():
         video[key] = "true" if low_power and profile not in profiles else "false"
