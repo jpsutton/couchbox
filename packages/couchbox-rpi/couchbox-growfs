@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Grow the root partition and its ext4 filesystem to fill the SD card, once,
+# on the first boot of a couchbox image. The image ships with a root
+# filesystem only a little bigger than its contents, so it flashes fast.
+#
+# The image is MBR (older Pis can't boot GPT), so this is sfdisk + resize2fs
+# rather than systemd-repart.
+set -euo pipefail
+
+stamp=/var/lib/couchbox/growfs-done
+
+part=$(findmnt -no SOURCE /)
+name=${part##*/}
+[[ -e /sys/class/block/$name/partition ]] || { echo "root ($part) is not a partition; nothing to grow"; exit 0; }
+num=$(</sys/class/block/"$name"/partition)
+disk=/dev/$(lsblk -no PKNAME "$part")
+
+echo "Growing $part (partition $num of $disk) to the end of the disk"
+# ", +" keeps the start and takes all the free space after it.
+echo ', +' | sfdisk --no-reread --no-tell-kernel -N "$num" "$disk"
+# Tell the kernel about the new size of the mounted partition.
+partx -u -n "$num" "$disk"
+resize2fs "$part"
+
+mkdir -p "${stamp%/*}"
+touch "$stamp"

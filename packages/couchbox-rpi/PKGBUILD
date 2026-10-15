@@ -1,0 +1,70 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# Raspberry Pi support for couchbox: the boot config couchbox adds to
+# config.txt, first-boot setup for the SD-card image (grow the root
+# filesystem, a per-device pacman keyring, the optional couchbox-setup.txt),
+# and the device access the hardware decoders need.
+
+pkgname=couchbox-rpi
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="couchbox on the Raspberry Pi: boot config, first-boot setup, hardware decode access"
+arch=(aarch64)
+license=(MIT)
+depends=(
+  # Kernel, boot firmware and Wi-Fi/Bluetooth firmware. linux-rpi carries the
+  # downstream codec drivers (bcm2835-codec, rpi-hevc-dec) mainline lacks.
+  linux-rpi raspberrypi-bootloader firmware-raspberrypi linux-firmware-broadcom
+  # vcgencmd (codec licences, clocks, throttling)
+  raspberrypi-utils
+  # FFmpeg with the V4L2 request API, and mpv/libmpv built against it
+  ffmpeg-rpi mpv-rpi
+  # Decoder probing (couchbox-video-profile)
+  v4l-utils
+  # couchbox-firstboot: SSH when couchbox-setup.txt turns it on
+  openssh
+  # couchbox-growfs
+  util-linux e2fsprogs
+  # Swap in RAM for the 1-4 GB boards
+  zram-generator
+  # couchbox-firstboot: Wi-Fi country rules
+  wireless-regdb
+)
+install=couchbox-rpi.install
+source=(
+  couchbox.txt
+  couchbox-firstboot
+  couchbox-firstboot.service
+  couchbox-growfs
+  couchbox-growfs.service
+  couchbox-pacman-init.service
+  zram-generator.conf
+  systemd-watchdog.conf
+  60-couchbox-rpi.rules
+  couchbox-setup.txt.example
+)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+
+package() {
+  # Included from config.txt (the image builder adds the include line;
+  # config.txt itself belongs to linux-rpi).
+  install -Dm644 couchbox.txt "$pkgdir/boot/couchbox.txt"
+  install -Dm644 couchbox-setup.txt.example "$pkgdir/boot/couchbox-setup.txt.example"
+
+  install -Dm755 couchbox-firstboot "$pkgdir/usr/lib/couchbox/couchbox-firstboot"
+  install -Dm755 couchbox-growfs "$pkgdir/usr/lib/couchbox/couchbox-growfs"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/system" \
+    couchbox-firstboot.service couchbox-growfs.service couchbox-pacman-init.service
+  # Enabled statically: these must run on the very first boot of the image,
+  # before any preset pass.
+  install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants" \
+    "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+  ln -s ../couchbox-growfs.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/"
+  ln -s ../couchbox-pacman-init.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/"
+  ln -s ../couchbox-firstboot.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/"
+
+  install -Dm644 zram-generator.conf "$pkgdir/usr/lib/systemd/zram-generator.conf.d/couchbox.conf"
+  # After couchbox-base's 90-couchbox-watchdog.conf, so this one wins.
+  install -Dm644 systemd-watchdog.conf "$pkgdir/usr/lib/systemd/system.conf.d/91-couchbox-rpi-watchdog.conf"
+  install -Dm644 60-couchbox-rpi.rules "$pkgdir/usr/lib/udev/rules.d/60-couchbox-rpi.rules"
+}

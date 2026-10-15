@@ -1,0 +1,94 @@
+# Maintainer: Jared Sutton <jpsutton@protonmail.com>
+#
+# mpv and libmpv linked against ffmpeg-rpi (Arch Linux ARM's [alarm] repo)
+# instead of the stock ffmpeg. Only the Raspberry Pi FFmpeg patches carry the
+# V4L2 request API hwaccel (HEVC on rpi-hevc-dec) and SAND/DRM-PRIME output,
+# so this is what lets Ember and couchbox-iptv decode on the Pi's hardware.
+# ffmpeg-rpi keeps its headers and pkg-config files under ffmpeg-rpi/ subdirs,
+# so the build just points pkg-config there.
+#
+# Based on Arch's extra/mpv PKGBUILD; keep pkgver in step with it (Arch Linux
+# ARM builds that one unchanged). Rebuild whenever mpv or ffmpeg-rpi moves.
+
+pkgname=mpv-rpi
+_pkgname=mpv
+epoch=1
+pkgver=0.41.0
+pkgrel=1
+pkgdesc='mpv media player built against ffmpeg-rpi for Raspberry Pi hardware decoding'
+arch=(aarch64)
+license=('GPL-2.0-or-later AND LGPL-2.1-or-later')
+url='https://mpv.io/'
+depends=('alsa-lib' 'desktop-file-utils' 'ffmpeg-rpi' 'glibc' 'hicolor-icon-theme'
+         'jack' 'lcms2' 'libarchive' 'libass' 'libbluray' 'libcdio'
+         'libcdio-paranoia' 'libdisplay-info' 'libdrm' 'libdvdnav' 'libdvdread' 'libegl' 'libgl'
+         'libglvnd' 'libjpeg-turbo' 'libplacebo' 'libpulse' 'libsixel' 'libva'
+         'libvdpau' 'libx11' 'libxext' 'libxkbcommon' 'libxpresent' 'libxrandr'
+         'libxss' 'libxv' 'luajit' 'mesa' 'mujs' 'libpipewire' 'rubberband' 'sdl2'
+         'openal' 'uchardet' 'vulkan-icd-loader' 'wayland' 'zlib')
+makedepends=('git' 'meson' 'python-docutils' 'ladspa' 'wayland-protocols' 'vulkan-headers')
+optdepends=('yt-dlp: for video-sharing websites playback')
+provides=("mpv=$epoch:$pkgver" 'libmpv.so')
+conflicts=('mpv')
+options=('!emptydirs')
+validpgpkeys=('145077D82501AA20152CACCE8D769208D5E31419') # sfan5 <sfan5@live.de>
+source=("git+https://github.com/mpv-player/mpv.git?signed#tag=v${pkgver}")
+sha256sums=('6d591780b86f20397697d8847e30b9bf864798b62615fa995395b7ce03a1e4f2')
+
+build() {
+  export PKG_CONFIG_PATH=/usr/lib/ffmpeg-rpi/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+
+  local _meson_options=(
+    --auto-features auto
+
+    -Dlibmpv=true
+    -Dgl-x11=enabled
+    -Dcaca=disabled
+    -Dcdda=enabled
+    -Ddrm=enabled
+    -Ddvbin=enabled
+    -Ddvdnav=enabled
+    -Dlibarchive=enabled
+    -Dopenal=enabled
+    -Dsdl2-audio=enabled
+    -Dsdl2-video=enabled
+    -Dsdl2-gamepad=enabled
+    -Dvapoursynth=disabled
+    -Dcuda-hwaccel=disabled
+    -Dcuda-interop=disabled
+  )
+
+  arch-meson "${_pkgname}" build "${_meson_options[@]}"
+
+  meson compile -C build
+}
+
+check() {
+  meson test -C build
+  # Fail the build if pkg-config picked up the stock FFmpeg after all.
+  local soname
+  soname=$(objdump -p build/libmpv.so | awk '/NEEDED.*libavcodec/ {print $2}')
+  [[ -n $soname && -e /usr/lib/ffmpeg-rpi/libavcodec.so ]]
+  [[ $(readlink -f /usr/lib/ffmpeg-rpi/libavcodec.so) == "$(readlink -f "/usr/lib/$soname")" ]] || {
+    echo "libmpv links $soname, not ffmpeg-rpi's libavcodec" >&2
+    return 1
+  }
+}
+
+package() {
+  depends+=('libasound.so' 'libdisplay-info.so'
+            'libjack.so' 'liblcms2.so' 'libarchive.so' 'libass.so' 'libbluray.so'
+            'libjpeg.so' 'libplacebo.so' 'libpulse.so' 'libva.so' 'libva-drm.so'
+            'libva-wayland.so' 'libva-x11.so' 'libxkbcommon.so' 'librubberband.so')
+
+  meson install -C build --destdir "${pkgdir}"
+
+  # delete private entries only required for static linking
+  sed -i -e '/Requires.private/d' -e '/Libs.private/d' "${pkgdir}"/usr/lib/pkgconfig/mpv.pc
+
+  install -m0644 "${_pkgname}"/DOCS/{encoding.rst,tech-overview.txt} \
+    "${pkgdir}"/usr/share/doc/mpv
+
+  install -m0644 "${_pkgname}"/TOOLS/{umpv,mpv_identify.sh,stats-conv.py,idet.sh,lua/*} \
+    -D -t "${pkgdir}"/usr/share/mpv/scripts
+}

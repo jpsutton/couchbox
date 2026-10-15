@@ -1,0 +1,12 @@
+# The image ships without a pacman keyring, so no two boxes share the same
+# local signing key. Make one on the first boot, and trust the Arch Linux ARM
+# and couchbox keys (every keyring under /usr/share/pacman/keyrings).
+[Unit]
+Description=Initialize the pacman keyring
+ConditionDirectoryNotEmpty=!/etc/pacman.d/gnupg
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/pacman-key --init
+ExecStart=/usr/bin/pacman-key --populate

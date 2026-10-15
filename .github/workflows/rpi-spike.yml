@@ -1,0 +1,68 @@
+# Raspberry Pi spike: aarch64 packages (mpv-rpi, Ember, couchbox-rpi) and a
+# flashable test image, built natively on an arm64 runner inside an Arch
+# Linux ARM container. Temporary; the real aarch64 build joins build.yml.
+name: rpi-spike
+
+on:
+  push:
+    branches: [feat/rpi-spike]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpi-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      # The generic aarch64 rootfs, checked against the Arch Linux ARM build
+      # key before it becomes the build container.
+      - name: Arch Linux ARM container
+        run: |
+          base=http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
+          curl -fsSL -o alarm.tar.gz "$base"
+          curl -fsSL -o alarm.tar.gz.sig "$base.sig"
+          gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys 68B3537F39A313B3E574D06777193F152BDBE6A6
+          gpg --batch --verify alarm.tar.gz.sig alarm.tar.gz
+          sudo docker import alarm.tar.gz alarm:build
+          rm alarm.tar.gz alarm.tar.gz.sig
+
+      # Privileged with the host's /dev: the image builder loop-mounts its
+      # filesystems and arch-chroots into them.
+      - name: Build packages and image
+        run: |
+          sudo docker run --rm --privileged -v /dev:/dev \
+            -v "$GITHUB_WORKSPACE:/src" -w /src alarm:build \
+            scripts/ci/build-pi-spike.sh
+
+      - name: Disk after build
+        if: always()
+        run: df -h /
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-rpi-spike-image
+          path: out/couchbox-rpi-spike.img.xz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchbox-rpi-spike-repo
+          path: out/pi/
+          if-no-files-found: error
+          retention-days: 14

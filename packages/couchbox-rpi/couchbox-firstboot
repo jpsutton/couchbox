@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# couchbox-firstboot <file>: apply couchbox-setup.txt (password, Wi-Fi,
+# hostname, time zone, SSH) from the boot partition, then delete it, since it
+# holds passwords. See couchbox-setup.txt.example for the keys.
+#
+# Each setting is applied on its own: a bad value is logged and skipped, and
+# the rest still apply.
+set -uo pipefail
+
+file=${1:?usage: couchbox-firstboot <couchbox-setup.txt>}
+user=htpc
+declare -A cfg=()
+
+# key=value lines; # comments; spaces around the key and at both ends of the
+# value are dropped; Windows line endings are fine.
+while IFS= read -r line || [[ -n $line ]]; do
+  line=${line%$'\r'}
+  [[ $line =~ ^[[:space:]]*(#|$) ]] && continue
+  # Don't echo the line: it may be a password typed without its key.
+  [[ $line == *=* ]] || { echo "ignored a line without '='"; continue; }
+  key=${line%%=*} value=${line#*=}
+  key=${key//[[:space:]]/}
+  value=${value#"${value%%[![:space:]]*}"}
+  value=${value%"${value##*[![:space:]]}"}
+  cfg[$key]=$value
+done < "$file"
+
+get() { printf '%s' "${cfg[$1]:-}"; }
+
+if [[ -n $(get password) ]]; then
+  # chpasswd reads stdin, so the password is never on a command line.
+  if printf '%s:%s\n' "$user" "$(get password)" | chpasswd; then
+    echo "password set for $user"
+  else
+    echo "could not set the password for $user"
+  fi
+fi
+
+if [[ -n $(get hostname) ]]; then
+  if [[ $(get hostname) =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$ ]]; then
+    get hostname > /etc/hostname
+    echo "hostname set to $(get hostname)"
+  else
+    echo "ignored invalid hostname"
+  fi
+fi
+
+if [[ -n $(get timezone) ]]; then
+  tz=$(get timezone)
+  if [[ $tz != *..* && -f /usr/share/zoneinfo/$tz ]]; then
+    ln -sf "/usr/share/zoneinfo/$tz" /etc/localtime
+    # Keep couchbox-timezone from replacing it from the network location.
+    if command -v kwriteconfig6 >/dev/null; then
+      kwriteconfig6 --file /etc/xdg/couchboxrc --group Time --key Automatic false
+    else
+      printf '[Time]\nAutomatic=false\n' >> /etc/xdg/couchboxrc
+    fi
+    echo "time zone set to $tz"
+  else
+    echo "ignored unknown time zone $tz"
+  fi
+fi
+
+if [[ -n $(get wifi_country) ]]; then
+  cc=$(get wifi_country)
+  cc=${cc^^}
+  if [[ $cc =~ ^[A-Z]{2}$ ]]; then
+    echo "options cfg80211 ieee80211_regdom=$cc" > /etc/modprobe.d/couchbox-wifi-country.conf
+    # Wi-Fi may already be up; set it for this boot too.
+    command -v iw >/dev/null && iw reg set "$cc" 2>/dev/null
+    echo "Wi-Fi country set to $cc"
+  else
+    echo "ignored invalid Wi-Fi country"
+  fi
+fi
+
+if [[ -n $(get wifi_ssid) ]]; then
+  ssid=$(get wifi_ssid)
+  conn=/etc/NetworkManager/system-connections/couchbox-setup.nmconnection
+  args=(type wifi con-name "$ssid" ssid "$ssid" connection.autoconnect yes)
+  [[ -n $(get wifi_password) ]] && args+=(wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$(get wifi_password)")
+  # --offline writes the keyfile (with NetworkManager's own escaping) without
+  # a running NetworkManager.
+  umask 077
+  if nmcli --offline connection add "${args[@]}" > "$conn.tmp"; then
+    mv "$conn.tmp" "$conn"
+    echo "Wi-Fi network $ssid added"
+  else
+    rm -f "$conn.tmp"
+    echo "could not add Wi-Fi network $ssid"
+  fi
+  umask 022
+fi
+
+if [[ -n $(get ssh_key) ]]; then
+  key=$(get ssh_key)
+  if [[ $key =~ ^(ssh-|ecdsa-|sk-) ]]; then
+    home=$(getent passwd "$user" | cut -d: -f6)
+    install -d -m 700 -o "$user" -g "$user" "$home/.ssh"
+    printf '%s\n' "$key" >> "$home/.ssh/authorized_keys"
+    chown "$user:$user" "$home/.ssh/authorized_keys"
+    chmod 600 "$home/.ssh/authorized_keys"
+    echo "SSH key added for $user"
+  else
+    echo "ignored ssh_key that doesn't look like a public key"
+  fi
+fi
+
+case ${cfg[ssh]:-} in
+  yes|Yes|YES|true|1)
+    systemctl enable sshd.service
+    systemctl start --no-block sshd.service
+    echo "SSH turned on" ;;
+esac
+
+# The file holds passwords: overwrite, then delete.
+shred -u "$file" 2>/dev/null || rm -f "$file"
+sync
+echo "couchbox-setup.txt applied and removed"

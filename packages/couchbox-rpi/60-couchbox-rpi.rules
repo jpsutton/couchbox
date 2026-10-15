@@ -1,0 +1,8 @@
+# The Raspberry Pi FFmpeg allocates decoder buffers from the DMA heaps, and
+# vcgencmd talks to the firmware through vcio/vchiq. Arch leaves these root
+# only; open them to the video group (the htpc user is in it), as Raspberry
+# Pi OS does.
+SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
+KERNEL=="vchiq", GROUP="video", MODE="0660"
+KERNEL=="vcio", GROUP="video", MODE="0660"
+KERNEL=="vc-mem", GROUP="video", MODE="0660"

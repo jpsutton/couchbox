@@ -1,0 +1,13 @@
+post_install() {
+  # config.txt belongs to linux-rpi; pull couchbox's settings in from it.
+  # couchbox.txt brings its own vc4-kms-v3d line (with a CMA size per board),
+  # so drop the stock one rather than load the overlay twice.
+  local cfg=/boot/config.txt
+  [[ -f $cfg ]] || return 0
+  sed -i 's/^dtoverlay=vc4-kms-v3d$/#&  # couchbox: set in couchbox.txt/' "$cfg"
+  grep -qx 'include couchbox.txt' "$cfg" || printf '\n[all]\ninclude couchbox.txt\n' >> "$cfg"
+}
+
+post_upgrade() {
+  post_install
+}

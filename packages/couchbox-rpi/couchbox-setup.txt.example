@@ -1,0 +1,28 @@
+# couchbox first-boot setup. Copy this file to couchbox-setup.txt on the SD
+# card's boot partition (the FAT one any computer can open), fill in what you
+# want, and start the Pi. couchbox applies it once and then deletes the file,
+# because it holds passwords.
+#
+# Every line is optional. Leave a value empty to skip it.
+
+# Password for the htpc user, for sudo (system updates) and SSH. Without one,
+# the account stays locked; the TV still logs in by itself.
+password=
+
+# Wi-Fi network to join. Not needed with a network cable.
+wifi_ssid=
+wifi_password=
+# Two-letter country code for the Wi-Fi channel rules, e.g. US or GB.
+wifi_country=
+
+# Name on the network (default: couchbox).
+hostname=
+
+# Time zone such as America/Chicago. Without it, couchbox finds the time zone
+# from the network location, and keeps doing so when the box moves.
+timezone=
+
+# Turn on SSH (yes/no). Needs a password or an ssh_key.
+ssh=
+# A public key allowed to log in over SSH as htpc (one line, ssh-ed25519 ...).
+ssh_key=

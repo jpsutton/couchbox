@@ -1,0 +1,28 @@
+# couchbox settings for the Raspberry Pi firmware, included at the end of
+# config.txt. Board filters: https://www.raspberrypi.com/documentation/computers/config_txt.html#conditional-filters
+#
+# KMS graphics with a CMA pool big enough for the hardware decoders: 4K HEVC
+# needs about 512 MB of contiguous memory for its reference frames.
+
+[pi2]
+dtoverlay=vc4-kms-v3d,cma-256
+
+[pi3]
+dtoverlay=vc4-kms-v3d,cma-256
+
+[pi02]
+dtoverlay=vc4-kms-v3d,cma-256
+
+[pi4]
+dtoverlay=vc4-kms-v3d,cma-512
+# 4K at 60 Hz on HDMI0 (the port next to the power input). Runs the SoC
+# warmer; fit a heatsink.
+hdmi_enable_4kp60=1
+
+[pi5]
+dtoverlay=vc4-kms-v3d,cma-512
+
+[all]
+# A Windows Media Center style IR receiver module on GPIO 17 (fire-blaster
+# reads it like the NUC's built-in receiver). Uncomment if one is fitted.
+#dtoverlay=gpio-ir,gpio_pin=17
