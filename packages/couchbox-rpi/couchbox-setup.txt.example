@@ -30,3 +30,8 @@ ssh_key=
 # ZeroTier network to join (16-digit network ID), to reach the box and your
 # media server from anywhere. Authorize the box in the network's controller.
 zerotier_network=
+# Keep the box's ZeroTier node ID from an earlier install, so the controller
+# still knows it: paste the one line of /var/lib/zerotier-one/identity.secret
+# from the old system (sudo cat it there). It is a private key; this file is
+# deleted once applied.
+zerotier_identity=

@@ -106,6 +106,23 @@ if [[ -n $(get ssh_key) ]]; then
   fi
 fi
 
+if [[ -n $(get zerotier_identity) ]]; then
+  # A ZeroTier identity kept from an earlier install (the contents of its
+  # /var/lib/zerotier-one/identity.secret), so the box comes back as the same
+  # node and its controller's authorization and address still apply. Written
+  # before zerotier-one first starts and makes a new one.
+  id=$(get zerotier_identity)
+  if [[ $id =~ ^([0-9a-f]{10}):0:([0-9a-f]{128}):([0-9a-f]{128})$ ]]; then
+    install -d -m 700 /var/lib/zerotier-one
+    (umask 077 && printf '%s' "$id" > /var/lib/zerotier-one/identity.secret)
+    printf '%s:0:%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" > /var/lib/zerotier-one/identity.public
+    chmod 644 /var/lib/zerotier-one/identity.public
+    echo "ZeroTier identity restored: node ${BASH_REMATCH[1]}"
+  else
+    echo "ignored zerotier_identity (not the contents of an identity.secret)"
+  fi
+fi
+
 if [[ -n $(get zerotier_network) ]]; then
   net=$(get zerotier_network)
   net=${net,,}
