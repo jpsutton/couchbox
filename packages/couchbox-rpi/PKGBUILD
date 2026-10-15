@@ -15,6 +15,9 @@ depends=(
   # Kernel, boot firmware and Wi-Fi/Bluetooth firmware. linux-rpi carries the
   # downstream codec drivers (bcm2835-codec, rpi-hevc-dec) mainline lacks.
   linux-rpi raspberrypi-bootloader firmware-raspberrypi linux-firmware-broadcom
+  # Arch Linux ARM's signing keys. base only pulls in archlinux-keyring, so
+  # without this a fresh image can't verify any ALARM package.
+  archlinuxarm-keyring
   # vcgencmd (codec licences, clocks, throttling)
   raspberrypi-utils
   # FFmpeg with the V4L2 request API, and mpv/libmpv built against it
@@ -42,8 +45,9 @@ source=(
   systemd-watchdog.conf
   60-couchbox-rpi.rules
   couchbox-setup.txt.example
+  kwin-drm-device.sh
 )
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
   # Included from config.txt (the image builder adds the include line;
@@ -66,5 +70,7 @@ package() {
   install -Dm644 zram-generator.conf "$pkgdir/usr/lib/systemd/zram-generator.conf.d/couchbox.conf"
   # After couchbox-base's 90-couchbox-watchdog.conf, so this one wins.
   install -Dm644 systemd-watchdog.conf "$pkgdir/usr/lib/systemd/system.conf.d/91-couchbox-rpi-watchdog.conf"
+  # Sourced by startplasma: KWin on the vc4 display device only.
+  install -Dm644 kwin-drm-device.sh "$pkgdir/etc/xdg/plasma-workspace/env/couchbox-rpi.sh"
   install -Dm644 60-couchbox-rpi.rules "$pkgdir/usr/lib/udev/rules.d/60-couchbox-rpi.rules"
 }
