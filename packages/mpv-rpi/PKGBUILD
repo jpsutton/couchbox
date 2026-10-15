@@ -19,7 +19,9 @@ pkgdesc='mpv media player built against ffmpeg-rpi for Raspberry Pi hardware dec
 arch=(aarch64)
 license=('GPL-2.0-or-later AND LGPL-2.1-or-later')
 url='https://mpv.io/'
-depends=('alsa-lib' 'desktop-file-utils' 'ffmpeg-rpi' 'glibc' 'hicolor-icon-theme'
+# sndio: ffmpeg-rpi's libavdevice links libsndio.so.7 without depending on
+# it (the stock ffmpeg does), so anything loading it needs sndio installed.
+depends=('alsa-lib' 'desktop-file-utils' 'ffmpeg-rpi' 'sndio' 'glibc' 'hicolor-icon-theme'
          'jack' 'lcms2' 'libarchive' 'libass' 'libbluray' 'libcdio'
          'libcdio-paranoia' 'libdisplay-info' 'libdrm' 'libdvdnav' 'libdvdread' 'libegl' 'libgl'
          'libglvnd' 'libjpeg-turbo' 'libplacebo' 'libpulse' 'libsixel' 'libva'

@@ -36,6 +36,13 @@ build() {
   su builder -c "cd '$src/packages/$1' && PKGDEST='$repo' makepkg -s --noconfirm --needed"
 }
 
+# ffmpeg-rpi has under-declared its dependencies before (sndio); list any
+# library its shared objects can't find, so the log says what to add.
+pacman -S --noconfirm --needed ffmpeg-rpi
+for lib in /usr/lib/lib{avcodec,avdevice,avfilter,avformat,avutil,postproc,swresample,swscale}.so.*.*; do
+  ldd "$lib" | grep 'not found' | sed "s|^|$lib: |" || true
+done
+
 build mpv-rpi
 # Ember depends on mpv; install mpv-rpi first so makepkg -s doesn't pull
 # the stock mpv.
