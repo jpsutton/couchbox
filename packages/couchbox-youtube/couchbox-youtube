@@ -1,4 +1,10 @@
 #!/bin/sh
-# --class sets the Wayland app ID, which must match the .desktop file name for
-# Bigscreen to raise the running window from its tile.
-exec electron --class=couchbox-youtube /usr/lib/couchbox-youtube "$@"
+# YouTube's TV interface: the Electron app (main.js) where Electron can decode
+# video in hardware (VA-API, x86_64), otherwise Chromium with the same page
+# code as an extension (couchbox-youtube-chromium; the Raspberry Pi).
+if command -v electron >/dev/null 2>&1; then
+  # --class sets the Wayland app ID, which must match the .desktop file name
+  # for Bigscreen to raise the running window from its tile.
+  exec electron --class=couchbox-youtube /usr/lib/couchbox-youtube "$@"
+fi
+exec /usr/lib/couchbox-youtube/couchbox-youtube-chromium "$@"

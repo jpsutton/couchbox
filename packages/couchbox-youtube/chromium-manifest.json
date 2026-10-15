@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "couchbox YouTube",
+  "description": "YouTube's TV interface for a remote: TV format answers, codec choice, no Shorts, remote keys.",
+  "version": "1.5.0",
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["config.js", "page.js", "start.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "stay-on-youtube", "enabled": true, "path": "rules.json" }]
+  },
+  "permissions": ["declarativeNetRequest"]
+}

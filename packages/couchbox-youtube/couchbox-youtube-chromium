@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""couchbox-youtube on Chromium, for boards where Electron can't decode
+video in hardware (the Raspberry Pi: Electron's arm64 builds have no V4L2
+decoder; Arch Linux ARM's Chromium does). YouTube's TV interface in an app
+window, with the same settings as the Electron app (main.js):
+
+  [YouTube] Codecs     auto | any | h264   (auto: hide VP9/AV1 the hardware
+                                           doesn't decode, per [Hardware]
+                                           Decodes from couchbox-video-profile)
+  [YouTube] HomePage   subscriptions | library | home
+  [YouTube] HideShorts true | false
+
+The extension in /usr/lib/couchbox-youtube/chromium does in the page what
+the Electron preload does; this script copies it next to Chromium's profile
+with a config.js holding the settings, then starts Chromium.
+
+  couchbox-youtube-chromium [--pause]
+
+--pause (couchbox-focus, when YouTube leaves the screen) pauses the video
+over MPRIS, which Chromium keeps on here, and starts nothing.
+"""
+import configparser
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+CONFIG = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "couchboxrc")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(HOME, ".local", "share")), "couchbox-youtube")
+EXTENSION = "/usr/lib/couchbox-youtube/chromium"
+PAGE = "/usr/lib/couchbox-youtube/page.js"
+
+TV_URL = "https://www.youtube.com/tv"
+HOME_PAGES = {"subscriptions": "#/browse?c=FEsubscriptions", "library": "#/browse?c=FEmy_youtube", "home": ""}
+# See USER_AGENT in main.js: LG webOS's WebAppManager is a supported TV client.
+USER_AGENT = os.environ.get("COUCHBOX_YOUTUBE_UA") or (
+    "Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.6099.270 Safari/537.36 WebAppManager")
+
+
+def read_config():
+    cfg = configparser.ConfigParser(interpolation=None, strict=False)
+    cfg.optionxform = str
+    try:
+        cfg.read(CONFIG)
+    except configparser.Error:
+        pass
+    return cfg
+
+
+def blocked_codecs(cfg):
+    setting = cfg.get("YouTube", "Codecs", fallback="auto")
+    if setting == "any":
+        return []
+    if setting == "h264":
+        return ["vp9", "av1"]
+    decodes = [d.strip() for d in cfg.get("Hardware", "Decodes", fallback="").split(",")]
+    return [codec for codec, name in (("vp9", "VP9"), ("av1", "AV1")) if name not in decodes]
+
+
+def pause():
+    """Pause Chromium's player over MPRIS; nothing to do if none is running."""
+    try:
+        names = subprocess.run(["busctl", "--user", "list", "--no-legend"],
+                               capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    for line in names.splitlines():
+        name = line.split()[0] if line.split() else ""
+        if name.startswith("org.mpris.MediaPlayer2.chromium"):
+            subprocess.run(["busctl", "--user", "call", name, "/org/mpris/MediaPlayer2",
+                            "org.mpris.MediaPlayer2.Player", "Pause"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+
+
+def main():
+    if "--pause" in sys.argv[1:]:
+        pause()
+        return
+    cfg = read_config()
+    home = TV_URL + HOME_PAGES.get(cfg.get("YouTube", "HomePage", fallback="subscriptions"),
+                                   HOME_PAGES["subscriptions"])
+    config = {
+        "blocked": blocked_codecs(cfg),
+        "hideShorts": cfg.get("YouTube", "HideShorts", fallback="true") != "false",
+        "home": home,
+    }
+    print(f"couchbox-youtube: codecs {cfg.get('YouTube', 'Codecs', fallback='auto')}, "
+          f"hiding [{', '.join(config['blocked'])}]", flush=True)
+
+    # A fresh copy each start, so a package update reaches it.
+    ext = os.path.join(DATA, "extension")
+    shutil.rmtree(ext, ignore_errors=True)
+    shutil.copytree(EXTENSION, ext)
+    shutil.copy(PAGE, os.path.join(ext, "page.js"))
+    with open(os.path.join(ext, "config.js"), "w") as f:
+        f.write(f"globalThis.couchboxConfig = {json.dumps(config)};\n")
+
+    args = [
+        "chromium",
+        f"--user-data-dir={os.path.join(DATA, 'chromium')}",
+        # The Wayland app ID, which must match the .desktop file name for
+        # Bigscreen to raise the running window from its tile.
+        "--class=couchbox-youtube",
+        "--ozone-platform=wayland",
+        f"--user-agent={USER_AGENT}",
+        # V4L2 hardware decoding (Arch Linux ARM builds Chromium with it).
+        "--enable-features=AcceleratedVideoDecoder,AcceleratedVideoDecodeLinuxGL",
+        # --load-extension is off by default since Chromium 137.
+        "--disable-features=DisableLoadExtensionCommandLineSwitch,Translate,MediaRouter",
+        f"--load-extension={ext}",
+        f"--disable-extensions-except={ext}",
+        "--autoplay-policy=no-user-gesture-required",
+        # No KWallet prompt for a profile that stores no passwords.
+        "--password-store=basic",
+        "--no-first-run", "--noerrdialogs", "--disable-session-crashed-bubble",
+        "--start-fullscreen",
+        f"--app={home}",
+    ]
+    os.execvp(args[0], args)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,20 +1,38 @@
 # Maintainer: Jared Sutton <jpsutton@protonmail.com>
 #
-# YouTube's TV interface (youtube.com/tv) for the couch: a fullscreen window on
-# the system electron, with remote-key handling. Kept in this repo; no upstream.
+# YouTube's TV interface (youtube.com/tv) for the couch: a fullscreen window
+# with remote-key handling. Kept in this repo; no upstream.
+#
+# x86_64 runs it on the system electron (VA-API decoding). aarch64 runs it in
+# Chromium instead: Electron's arm64 builds have no V4L2 decoder, and Arch
+# Linux ARM's Chromium does. Both share the page code in page.js.
 
 pkgname=couchbox-youtube
-pkgver=1.4.1
+pkgver=1.5.0
 pkgrel=1
-pkgdesc="YouTube's TV interface in a fullscreen Electron window, for a remote"
-arch=(any)
+pkgdesc="YouTube's TV interface in a fullscreen window, for a remote"
+arch=(x86_64 aarch64)
 license=(MIT)
-depends=(electron libva-utils)
-source=(main.js preload.js package.json couchbox-youtube couchbox-youtube.desktop couchbox-youtube.svg)
-sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP)
+depends_x86_64=(electron libva-utils)
+depends_aarch64=(chromium python)
+source=(main.js page.js electron-preload.js package.json couchbox-youtube couchbox-youtube.desktop
+        couchbox-youtube.svg couchbox-youtube-chromium
+        chromium-manifest.json chromium-rules.json chromium-start.js)
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP)
 
 package() {
-  install -Dm644 main.js preload.js package.json -t "$pkgdir/usr/lib/couchbox-youtube/"
+  local lib="$pkgdir/usr/lib/couchbox-youtube"
+  install -Dm644 page.js -t "$lib/"
+  if [[ $CARCH == x86_64 ]]; then
+    install -Dm644 main.js package.json -t "$lib/"
+    # The preload is the shared page functions followed by the Electron part.
+    cat page.js electron-preload.js | install -Dm644 /dev/stdin "$lib/preload.js"
+  else
+    install -Dm755 couchbox-youtube-chromium -t "$lib/"
+    install -Dm644 chromium-manifest.json "$lib/chromium/manifest.json"
+    install -Dm644 chromium-rules.json "$lib/chromium/rules.json"
+    install -Dm644 chromium-start.js "$lib/chromium/start.js"
+  fi
   install -Dm755 couchbox-youtube "$pkgdir/usr/bin/couchbox-youtube"
   install -Dm644 couchbox-youtube.desktop "$pkgdir/usr/share/applications/couchbox-youtube.desktop"
   install -Dm644 couchbox-youtube.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/couchbox-youtube.svg"

@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "resourceTypes": ["main_frame"],
+      "excludedRequestDomains": [
+        "youtube.com", "google.com", "googlevideo.com", "ytimg.com", "ggpht.com", "gstatic.com",
+        "googleusercontent.com", "youtube-nocookie.com", "google.co.uk", "google.ca", "google.com.au",
+        "google.de", "google.fr", "google.co.in", "google.co.jp"
+      ]
+    }
+  }
+]
