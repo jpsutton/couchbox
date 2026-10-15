@@ -11,8 +11,8 @@ both ISOs also pass in QEMU/OVMF. Not yet tried on AMD hardware.
 ```
 aur.txt                   AUR packages to build, in order, with their local deps
 packages/couchbox-base/   meta package and appliance config
-packages/kodi-addon-couchbox-shuffle/  Kodi context menu on shows and seasons: Shuffle one, Shuffle all
-packages/plezy-couchbox/  Plezy with couchbox's patches (Home key, Play/Pause, Display Scale); provides plezy
+packages/kodi-addon-couchbox-shuffle/  Kodi context menu on shows and seasons: Shuffle one, Shuffle all (not installed by default)
+packages/plezy-couchbox/  Plezy with couchbox's patches (Home key, Play/Pause, Display Scale); provides plezy (not installed by default)
 packages/couchbox-youtube/  YouTube's TV interface (youtube.com/tv) in a fullscreen window on the system electron
 packages/couchbox-iptv/     IPTV app and its refresh job, built from github.com/jpsutton/couchbox-iptv at a tag
 packages/ember/           Ember, the Jellyfin client, built from github.com/jpsutton/ember at a tag

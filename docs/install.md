@@ -86,7 +86,7 @@ NetworkManager and SDDM. Use a machine meant to be the HTPC, not a desktop.
    microcode.
 
 4. Create the `htpc` user after couchbox-base is installed, so it gets the
-   files from `/etc/skel` (app tiles, Plezy and Kodi defaults). An existing
+   files from `/etc/skel` (couchbox's Plasma shortcut fix). An existing
    `htpc` account doesn't get them; copy them from `/etc/skel` by hand.
 
    ```

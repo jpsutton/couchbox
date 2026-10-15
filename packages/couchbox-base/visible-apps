@@ -1,10 +1,8 @@
 # Apps shown on the Bigscreen home screen, one desktop file name per line
 # (without .desktop). Everything else in /usr/share/applications is hidden.
 # After editing, run couchbox-update-app-blacklist and restart the session.
-com.edde746.plezy
-kodi
+# Konsole is installed but has no tile: Ctrl+Alt+T opens it.
 couchbox-youtube
 org.couchbox.iptv
 org.couchbox.ember
 org.kde.plasma.bigscreen.settings
-org.kde.konsole

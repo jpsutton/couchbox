@@ -16,7 +16,8 @@ Bigscreen Settings:
   couchbox-video-profile probe       detect the hardware, reset [Video] to the
                                      recommended values, then apply
   couchbox-video-profile apply       write [Video] into Plezy and Kodi's
-                                     Jellyfin add-ons
+                                     Jellyfin add-ons, when installed (Ember
+                                     reads couchboxrc itself)
 
 The probe only picks defaults: nothing reapplies them at login, so a setting
 changed here or inside Plezy or Kodi stays. The clients rewrite their own
@@ -28,6 +29,7 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -233,6 +235,10 @@ def apply_after_exit(client):
 def apply():
     cfg = read_config()
     for client, func in APPLY.items():
+        # Neither is in the default install any more; don't leave settings
+        # files for an app that isn't there.
+        if not shutil.which(client):
+            continue
         if running(client):
             log(f"{client} is running; applying when it exits")
             # A unit of its own: the first-login service is a oneshot, and
