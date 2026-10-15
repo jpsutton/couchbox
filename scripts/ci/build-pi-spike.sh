@@ -43,15 +43,18 @@ for lib in /usr/lib/lib{avcodec,avdevice,avfilter,avformat,avutil,postproc,swres
   ldd "$lib" | grep 'not found' | sed "s|^|$lib: |" || true
 done
 
+# Arch Linux ARM's makepkg.conf picks its own PKGEXT (.pkg.tar.xz), so
+# globs below match any compression.
 build mpv-rpi
 # Ember depends on mpv; install mpv-rpi first so makepkg -s doesn't pull
 # the stock mpv.
-pacman -U --noconfirm "$repo"/mpv-rpi-[0-9]*.pkg.tar.zst
+ls -la "$repo"
+pacman -U --noconfirm "$repo"/mpv-rpi-[0-9]*.pkg.tar.*
 build ember
 build couchbox-rpi
 
-rm -f "$repo"/*-debug-*.pkg.tar.zst
-repo-add "$repo/couchbox-aarch64.db.tar.zst" "$repo"/*.pkg.tar.zst
+rm -f "$repo"/*-debug-*.pkg.tar.*
+repo-add "$repo/couchbox-aarch64.db.tar.zst" "$repo"/*.pkg.tar.*
 
 echo "==> Image"
 spike_packages=(
