@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Plezy
-Comment=Plex, Jellyfin and Emby client (couchbox tile)
-Exec=plezy
-Icon=plezy
-Terminal=false
-StartupWMClass=plezy
-Categories=AudioVideo;Video;Player;TV;

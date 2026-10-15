@@ -8,8 +8,6 @@ remote. It's built on Arch Linux and KDE Plasma Bigscreen.
 
 - **Apps for watching:**
   - **Ember**, a Jellyfin app that looks and works like Kodi's Amber skin.
-  - **Plezy**, for Plex, Jellyfin and Emby.
-  - **Kodi**, with its Jellyfin add-ons.
   - **YouTube**, in the same TV version smart TVs use.
   - **IPTV**, free internet TV channels in a channel guide.
 - **Remote control.** Bluetooth remotes, such as the Fire TV remote, work
@@ -24,8 +22,9 @@ remote. It's built on Arch Linux and KDE Plasma Bigscreen.
 - **Picks your time zone.** The box sets its time zone from where it is, and
   follows along if you take it somewhere else.
 - **Updates.** New versions of couchbox and its apps are published as
-  signed updates, so the box can check they're genuine. Install them from
-  Konsole on the home screen with `sudo pacman -Syu`.
+  signed updates, so the box can check they're genuine. To install them,
+  plug in a keyboard, press Ctrl+Alt+T to open Konsole, and run
+  `sudo pacman -Syu`. Konsole has no tile on the home screen.
 
 ## Using the remote
 
