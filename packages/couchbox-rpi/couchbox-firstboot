@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # couchbox-firstboot <file>: apply couchbox-setup.txt (password, Wi-Fi,
-# hostname, time zone, SSH) from the boot partition, then delete it, since it
+# hostname, time zone, SSH, ZeroTier) from the boot partition, then delete it, since it
 # holds passwords. See couchbox-setup.txt.example for the keys.
 #
 # Each setting is applied on its own: a bad value is logged and skipped, and
@@ -103,6 +103,22 @@ if [[ -n $(get ssh_key) ]]; then
     echo "SSH key added for $user"
   else
     echo "ignored ssh_key that doesn't look like a public key"
+  fi
+fi
+
+if [[ -n $(get zerotier_network) ]]; then
+  net=$(get zerotier_network)
+  net=${net,,}
+  if [[ $net =~ ^[0-9a-f]{16}$ ]] && command -v zerotier-one >/dev/null; then
+    # An empty networks.d/<id>.conf is a join request; the network's
+    # controller still has to authorize the box.
+    install -d -m 700 /var/lib/zerotier-one/networks.d
+    : > "/var/lib/zerotier-one/networks.d/$net.conf"
+    systemctl enable zerotier-one.service
+    systemctl start --no-block zerotier-one.service
+    echo "joining ZeroTier network $net"
+  else
+    echo "ignored zerotier_network (not a 16-digit network ID, or ZeroTier missing)"
   fi
 fi
 

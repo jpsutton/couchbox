@@ -52,7 +52,7 @@ spike_packages=(
   # The Bigscreen session (as couchbox-base pulls in)
   plasma-bigscreen plasma-nm plasma-pa kscreen powerdevil xdg-desktop-portal-kde sddm
   networkmanager bluez bluez-utils libcec pipewire pipewire-pulse wireplumber
-  noto-fonts konsole
+  noto-fonts konsole zerotier-one
   # YouTube in Chromium (the plan for aarch64)
   chromium
   # Measuring

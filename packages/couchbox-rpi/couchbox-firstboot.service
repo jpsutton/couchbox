@@ -3,7 +3,7 @@ Description=Apply couchbox-setup.txt from the boot partition
 Documentation=file:///boot/couchbox-setup.txt.example
 RequiresMountsFor=/boot
 After=couchbox-growfs.service
-Before=NetworkManager.service sddm.service systemd-user-sessions.service sshd.service network-pre.target
+Before=NetworkManager.service zerotier-one.service sddm.service systemd-user-sessions.service sshd.service network-pre.target
 Wants=network-pre.target
 ConditionPathExists=/boot/couchbox-setup.txt
 
