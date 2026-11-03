@@ -22,8 +22,12 @@ Ideas and open work.
 - **fire-blaster IR.** fire-blaster is packaged and handles the long Home
   press, but its IR output is a stub, so couchbox leaves `[keys]` empty and
   volume/mute/power go to Plasma. Once a USB IR blaster is fitted, fill
-  `[keys]` in `/etc/fire-blaster/config.toml` and add `pyside6` for the
-  on-screen setup overlay.
+  `[keys]` in `/etc/fire-blaster/config.toml`. The on-screen setup overlay
+  already ships, for remote setup.
+- **Power button before fireblasterd starts.** Remote setup takes over the
+  power button only once the daemon runs; a press during boot still reaches
+  logind. A logind inhibitor or drop-in would close that gap, and the box
+  then needs a deliberate way to shut down.
 - **Hotel captive portals.** Test the NetworkManager captive-portal flow
   inside Bigscreen, which has no normal browser window.
 - **aarch64.** archiso can build UEFI AArch64 ISOs. That covers boards with

@@ -6,7 +6,7 @@
 # home-screen app list.
 
 pkgname=couchbox-base
-pkgver=0.12.3
+pkgver=0.12.4
 pkgrel=1
 pkgdesc="couchbox HTPC OS: Plasma Bigscreen autologin session with app tiles (Ember, YouTube, IPTV)"
 arch=(any)
@@ -23,8 +23,9 @@ depends=(
   curl kconfig
   python libva-utils
   zerotier-one
-  # The remote: long-press Home (and IR once a blaster is fitted)
-  fire-blaster
+  # The remote: long-press Home, IR remote setup on the power button (and IR
+  # output once a blaster is fitted). pyside6 runs its on-screen overlay.
+  fire-blaster pyside6
   # couchbox-bt-agent
   python-dbus python-gobject
   # Clients. Kodi and Plezy (plezy-couchbox) are no longer installed by
@@ -128,6 +129,11 @@ package() {
   install -Dm644 systemd-watchdog.conf "$pkgdir/usr/lib/systemd/system.conf.d/90-couchbox-watchdog.conf"
   install -Dm644 kwinrc "$pkgdir/etc/xdg/kwinrc"
   install -Dm644 fire-blaster.toml "$pkgdir/etc/fire-blaster/config.toml"
+  # fire-blaster's setup overlay, in the session from login: it stays hidden
+  # until the power button opens remote setup (or Back+OK opens TV setup).
+  install -d "$pkgdir/etc/xdg/autostart"
+  ln -s /usr/share/fire-blaster/desktop/fireblaster-setup-autostart.desktop \
+    "$pkgdir/etc/xdg/autostart/fireblaster-setup.desktop"
   install -Dm644 kglobalshortcutsrc "$pkgdir/etc/xdg/kglobalshortcutsrc"
   install -Dm644 kactivitymanagerd-pluginsrc "$pkgdir/etc/xdg/kactivitymanagerd-pluginsrc"
   install -Dm644 60-couchbox-hdmi-passthrough.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/60-couchbox-hdmi-passthrough.conf"

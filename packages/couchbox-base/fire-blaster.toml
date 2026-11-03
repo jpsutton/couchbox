@@ -57,6 +57,12 @@ KEY_POWER2 = "KEY_F24"
 # media Stop key the apps act on (Plezy leaves the player, Kodi stops).
 KEY_STOP = "KEY_STOPCD"
 
+# The PC's own power button: a tap opens remote setup, which teaches the box
+# any IR remote (a TV remote, say) through the IR receiver, instead of
+# shutting down. Holding it ~4 s still forces power-off, in firmware.
+[power_button]
+names = ["^Power Button$"]
+
 [setup]
 # Back + OK, with OK already remapped to KEY_ENTER.
 combo = ["KEY_BACK", "KEY_ENTER"]

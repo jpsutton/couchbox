@@ -29,3 +29,4 @@ pacman leaves a `.pacnew` to merge).
 | Bluetooth pairing agent that accepts and trusts remotes | `couchbox-base` (`couchbox-bt-agent`) |
 | Short Home/Menu go to the app; long Home shows the Bigscreen launcher, long Menu the home overlay (Tasks page: hold OK to close an app); OK and Menu remapped for apps | `fire-blaster` (`[hold]`, `[remap]`), `couchbox-base` (KWin script, shortcut defaults) |
 | fire-blaster (remote grab, long-press keys; IR once a blaster is fitted) | `packages/fire-blaster`, built from `../fire-blaster` |
+| Tap the PC's power button to teach the box an IR remote (a TV remote on the IR receiver); its overlay autostarts in the session | `fire-blaster` (`[power_button]`), `couchbox-base` (config, `pyside6`, `/etc/xdg/autostart/fireblaster-setup.desktop`) |
